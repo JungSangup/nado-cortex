@@ -10,39 +10,83 @@ export interface NexfootEncoderState {
   lastUpdated: number;
 }
 
-export type CortexSlotType = 'gate' | 'drive' | 'capture' | 'cab' | 'fx1' | 'fx2' | 'fx3' | 'fx4' | 'fx5';
+export type CortexSlotId = 
+  | 'pre_fx_1' // enableSlot: 0x04, modelSlot: 0x00
+  | 'pre_fx_2' // enableSlot: 0x05, modelSlot: 0x01
+  | 'amp'      // enableSlot: 0x01, modelSlot: 0x01 (Capture)
+  | 'cab'      // enableSlot: 0x03, modelSlot: 0x03 (IR)
+  | 'post_fx_1'// enableSlot: 0x06, modelSlot: 0x02
+  | 'post_fx_2'// enableSlot: 0x07, modelSlot: 0x03
+  | 'post_fx_3';// enableSlot: 0x08, modelSlot: 0x04
 
 export interface CortexSlotState {
+  slotId: CortexSlotId;
   slotIndex: number;
   name: string;
-  type: CortexSlotType;
+  category: 'pre_fx' | 'amp' | 'cab' | 'post_fx';
   isBypassed: boolean;
+  modelId: string;
+  modelName: string;
 }
 
-export interface CortexParameter {
+export interface DeviceParameterDef {
   id: string;
   name: string;
-  slotIndex: number;
-  value: number; // 0.0 ~ 1.0 (normalized)
+  paramIndex: number;
   min: number;
   max: number;
+  defaultValue: number;
   unit?: string;
+  step?: number;
+  valueFormat?: (val: number) => string;
 }
 
-export interface NexfootMapping {
-  encoderId: NexfootEncoderId;
-  label: string;
-  pushAction: {
-    type: 'slot_bypass' | 'tuner' | 'tap_tempo' | 'preset_select';
-    slotIndex?: number;
-    presetNumber?: number;
-  };
-  rotateAction: {
-    type: 'parameter' | 'preset_scroll';
-    paramId?: string;
-    slotIndex?: number;
-    step?: number;
-  };
+export interface DeviceModelDef {
+  id: string; // Nano Cortex Model ID
+  name: string;
+  category: 'pre_fx' | 'amp' | 'cab' | 'post_fx';
+  description: string;
+  parameters: DeviceParameterDef[];
+}
+
+export type MidiInputMode = 'relative' | 'absolute' | 'push_toggle';
+
+export interface ControlBinding {
+  id: string;
+  swId: 'sw1' | 'sw2' | 'sw3' | 'sw4' | 'exp';
+  type: 'push' | 'rotate';
+  targetType: 'slot_toggle' | 'slot_param' | 'preset_change' | 'page_nav';
+  targetSlotId?: CortexSlotId;
+  targetParamIndex?: number;
+  midiChannel: number;
+  ccNumber: number;
+  mode: MidiInputMode;
+  min: number;
+  max: number;
+  invert: boolean;
+}
+
+export interface MappingProfile {
+  id: string;
+  name: string;
+  description: string;
+  version: '0.0.2';
+  bindings: ControlBinding[];
+}
+
+export interface MidiLearnTarget {
+  type: 'slot_toggle' | 'slot_param' | 'page_nav';
+  slotId?: CortexSlotId;
+  paramIndex?: number;
+  swId?: 'sw1' | 'sw2' | 'sw3' | 'sw4';
+}
+
+export interface MidiLearnState {
+  active: boolean;
+  target: MidiLearnTarget | null;
+  detectedMode?: MidiInputMode;
+  detectedCC?: number;
+  detectedChannel?: number;
 }
 
 export interface PacketLogEntry {

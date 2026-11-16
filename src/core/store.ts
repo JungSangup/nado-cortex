@@ -4,11 +4,17 @@ import {
   MidiConnectionStatus,
   NexfootEncoderId,
   NexfootEncoderState,
+  CortexSlotId,
   CortexSlotState,
-  CortexParameter,
-  NexfootMapping,
+  MappingProfile,
+  MidiLearnState,
+  MidiLearnTarget,
   PacketLogEntry,
 } from '../types';
+import { CORTEX_SLOT_CONFIGS, DEVICE_CATALOG } from './DeviceCatalog';
+import { profileManager } from './ProfileManager';
+import { midiLearnEngine } from './MidiLearnEngine';
+import { dynamicPagingRouter } from './DynamicPagingRouter';
 
 interface AppState {
   // 모드 설정
@@ -29,20 +35,43 @@ interface AppState {
   updateNexfootRotate: (id: NexfootEncoderId, value: number) => void;
   updateNexfootPush: (id: NexfootEncoderId, isPushed: boolean) => void;
 
-  // Nano Cortex 가상/실제 상태
+  // Nano Cortex 프리셋 (0 ~ 63)
   currentPresetIndex: number;
   currentPresetName: string;
-  setCurrentPreset: (index: number, name: string) => void;
+  setCurrentPresetIndex: (index: number) => void;
+
+  // 시그널 체인 슬롯 (7개 슬롯)
   cortexSlots: CortexSlotState[];
-  toggleSlotBypass: (slotIndex: number) => void;
-  setSlotBypass: (slotIndex: number, isBypassed: boolean) => void;
+  selectedSlotId: CortexSlotId;
+  setSelectedSlotId: (slotId: CortexSlotId) => void;
+  toggleSlotBypass: (slotId: CortexSlotId) => void;
+  setSlotBypass: (slotId: CortexSlotId, isBypassed: boolean) => void;
+  setSlotModel: (slotId: CortexSlotId, modelId: string) => void;
 
-  cortexParameters: Record<string, CortexParameter>;
-  updateParameterValue: (paramId: string, normalizedValue: number) => void;
+  // 파라미터 인스펙터 & 페이징 상태
+  paramPageIndex: number;
+  setParamPageIndex: (index: number) => void;
+  nextParamPage: () => void;
+  prevParamPage: () => void;
+  updateSlotParamValue: (slotId: CortexSlotId, paramIndex: number, value: number) => void;
 
-  // 매핑 테이블
-  mappings: Record<NexfootEncoderId, NexfootMapping>;
-  updateMapping: (id: NexfootEncoderId, mapping: NexfootMapping) => void;
+  // 프로필 관리
+  activeProfile: MappingProfile;
+  profiles: MappingProfile[];
+  setActiveProfile: (profileId: string) => void;
+  createProfile: (name: string) => void;
+  importProfile: (jsonString: string) => { success: boolean; error?: string };
+  deleteProfile: (profileId: string) => boolean;
+
+  // MIDI Learn 상태
+  midiLearnState: MidiLearnState;
+  startMidiLearn: (target: MidiLearnTarget) => void;
+  cancelMidiLearn: () => void;
+
+  // UI 상태 (로그 펼치기/접기)
+  logExpanded: boolean;
+  setLogExpanded: (expanded: boolean) => void;
+  toggleLogExpanded: () => void;
 
   // 패킷/이벤트 로그
   logs: PacketLogEntry[];
@@ -50,150 +79,212 @@ interface AppState {
   clearLogs: () => void;
 }
 
-const initialSlots: CortexSlotState[] = [
-  { slotIndex: 0, name: 'Input Gate', type: 'gate', isBypassed: false },
-  { slotIndex: 1, name: 'Rodent Drive', type: 'drive', isBypassed: false },
-  { slotIndex: 2, name: 'UK 100 Lead', type: 'capture', isBypassed: false },
-  { slotIndex: 3, name: '4x12 Greenback', type: 'cab', isBypassed: false },
-  { slotIndex: 4, name: 'Analog Delay', type: 'fx1', isBypassed: false },
-  { slotIndex: 5, name: 'Plate Reverb', type: 'fx2', isBypassed: false },
-];
+const buildInitialSlots = (): CortexSlotState[] => {
+  const slotIds: CortexSlotId[] = [
+    'pre_fx_1',
+    'pre_fx_2',
+    'amp',
+    'cab',
+    'post_fx_1',
+    'post_fx_2',
+    'post_fx_3',
+  ];
 
-const initialParameters: Record<string, CortexParameter> = {
-  'drive_gain': { id: 'drive_gain', name: 'Gain', slotIndex: 1, value: 0.5, min: 0, max: 100, unit: '%' },
-  'drive_tone': { id: 'drive_tone', name: 'Tone', slotIndex: 1, value: 0.65, min: 0, max: 100, unit: '%' },
-  'drive_level': { id: 'drive_level', name: 'Level', slotIndex: 1, value: 0.75, min: 0, max: 100, unit: '%' },
-  'delay_mix': { id: 'delay_mix', name: 'Mix', slotIndex: 4, value: 0.35, min: 0, max: 100, unit: '%' },
-  'delay_feedback': { id: 'delay_feedback', name: 'Feedback', slotIndex: 4, value: 0.45, min: 0, max: 100, unit: '%' },
-  'reverb_mix': { id: 'reverb_mix', name: 'Mix', slotIndex: 5, value: 0.3, min: 0, max: 100, unit: '%' },
-  'reverb_decay': { id: 'reverb_decay', name: 'Decay', slotIndex: 5, value: 0.5, min: 0, max: 100, unit: '%' },
-};
-
-const initialMappings: Record<NexfootEncoderId, NexfootMapping> = {
-  1: {
-    encoderId: 1,
-    label: 'Drive Control',
-    pushAction: { type: 'slot_bypass', slotIndex: 1 },
-    rotateAction: { type: 'parameter', paramId: 'drive_gain', slotIndex: 1 },
-  },
-  2: {
-    encoderId: 2,
-    label: 'Delay Control',
-    pushAction: { type: 'slot_bypass', slotIndex: 4 },
-    rotateAction: { type: 'parameter', paramId: 'delay_mix', slotIndex: 4 },
-  },
-  3: {
-    encoderId: 3,
-    label: 'Reverb Control',
-    pushAction: { type: 'slot_bypass', slotIndex: 5 },
-    rotateAction: { type: 'parameter', paramId: 'reverb_mix', slotIndex: 5 },
-  },
-  4: {
-    encoderId: 4,
-    label: 'Preset / Tap',
-    pushAction: { type: 'tap_tempo' },
-    rotateAction: { type: 'preset_scroll', step: 1 },
-  },
-};
-
-export const useAppStore = create<AppState>((set) => ({
-  isMockMode: true, // 기본값을 Mock 모드로 설정하여 하드웨어 없이 즉시 시연 가능
-  setMockMode: (enabled) => set({ isMockMode: enabled }),
-
-  bleStatus: 'disconnected',
-  bleDeviceName: null,
-  setBleStatus: (status, deviceName) =>
-    set({ bleStatus: status, bleDeviceName: deviceName ?? null }),
-
-  midiStatus: 'disconnected',
-  midiDeviceName: null,
-  setMidiStatus: (status, deviceName) =>
-    set({ midiStatus: status, midiDeviceName: deviceName ?? null }),
-
-  nexfootStates: {
-    1: { id: 1, rotateValue: 64, isPushed: false, lastUpdated: Date.now() },
-    2: { id: 2, rotateValue: 45, isPushed: false, lastUpdated: Date.now() },
-    3: { id: 3, rotateValue: 38, isPushed: false, lastUpdated: Date.now() },
-    4: { id: 4, rotateValue: 0, isPushed: false, lastUpdated: Date.now() },
-  },
-
-  updateNexfootRotate: (id, value) => {
-    const clamped = Math.max(0, Math.min(127, Math.round(value)));
-    set((state) => ({
-      nexfootStates: {
-        ...state.nexfootStates,
-        [id]: { ...state.nexfootStates[id], rotateValue: clamped, lastUpdated: Date.now() },
-      },
-    }));
-  },
-
-  updateNexfootPush: (id, isPushed) => {
-    set((state) => ({
-      nexfootStates: {
-        ...state.nexfootStates,
-        [id]: { ...state.nexfootStates[id], isPushed, lastUpdated: Date.now() },
-      },
-    }));
-  },
-
-  currentPresetIndex: 4,
-  currentPresetName: '05: Crunch Lead Drive',
-  setCurrentPreset: (index, name) =>
-    set({ currentPresetIndex: index, currentPresetName: name }),
-
-  cortexSlots: initialSlots,
-  toggleSlotBypass: (slotIndex) => {
-    set((state) => ({
-      cortexSlots: state.cortexSlots.map((slot) =>
-        slot.slotIndex === slotIndex ? { ...slot, isBypassed: !slot.isBypassed } : slot
-      ),
-    }));
-  },
-  setSlotBypass: (slotIndex, isBypassed) => {
-    set((state) => ({
-      cortexSlots: state.cortexSlots.map((slot) =>
-        slot.slotIndex === slotIndex ? { ...slot, isBypassed } : slot
-      ),
-    }));
-  },
-
-  cortexParameters: initialParameters,
-  updateParameterValue: (paramId, normalizedValue) => {
-    const clamped = Math.max(0, Math.min(1.0, normalizedValue));
-    set((state) => {
-      const target = state.cortexParameters[paramId];
-      if (!target) return state;
-      return {
-        cortexParameters: {
-          ...state.cortexParameters,
-          [paramId]: { ...target, value: clamped },
-        },
-      };
-    });
-  },
-
-  mappings: initialMappings,
-  updateMapping: (id, mapping) => {
-    set((state) => ({
-      mappings: {
-        ...state.mappings,
-        [id]: mapping,
-      },
-    }));
-  },
-
-  logs: [],
-  addLog: (entry) => {
-    const now = new Date();
-    const timeStr = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
-    const newEntry: PacketLogEntry = {
-      ...entry,
-      id: Math.random().toString(36).substring(2, 9),
-      timestamp: timeStr,
+  return slotIds.map((slotId) => {
+    const cfg = CORTEX_SLOT_CONFIGS[slotId];
+    const model = DEVICE_CATALOG[cfg.defaultModelId];
+    return {
+      slotId,
+      slotIndex: cfg.enableSlot,
+      name: cfg.name,
+      category: cfg.category,
+      isBypassed: false,
+      modelId: cfg.defaultModelId,
+      modelName: model ? model.name : cfg.name,
     };
-    set((state) => ({
-      logs: [newEntry, ...state.logs.slice(0, 99)], // 최대 100개 유지
-    }));
-  },
-  clearLogs: () => set({ logs: [] }),
-}));
+  });
+};
+
+export const useAppStore = create<AppState>((set, get) => {
+  // Subscribe to MidiLearnEngine
+  midiLearnEngine.subscribe((learnState) => {
+    set({ midiLearnState: learnState });
+  });
+
+  return {
+    isMockMode: true,
+    setMockMode: (enabled) => set({ isMockMode: enabled }),
+
+    bleStatus: 'disconnected',
+    bleDeviceName: null,
+    setBleStatus: (status, deviceName) =>
+      set({ bleStatus: status, bleDeviceName: deviceName ?? null }),
+
+    midiStatus: 'disconnected',
+    midiDeviceName: null,
+    setMidiStatus: (status, deviceName) =>
+      set({ midiStatus: status, midiDeviceName: deviceName ?? null }),
+
+    nexfootStates: {
+      1: { id: 1, rotateValue: 64, isPushed: false, lastUpdated: Date.now() },
+      2: { id: 2, rotateValue: 45, isPushed: false, lastUpdated: Date.now() },
+      3: { id: 3, rotateValue: 38, isPushed: false, lastUpdated: Date.now() },
+      4: { id: 4, rotateValue: 0, isPushed: false, lastUpdated: Date.now() },
+    },
+
+    updateNexfootRotate: (id, value) => {
+      const clamped = Math.max(0, Math.min(127, Math.round(value)));
+      set((state) => ({
+        nexfootStates: {
+          ...state.nexfootStates,
+          [id]: { ...state.nexfootStates[id], rotateValue: clamped, lastUpdated: Date.now() },
+        },
+      }));
+    },
+
+    updateNexfootPush: (id, isPushed) => {
+      set((state) => ({
+        nexfootStates: {
+          ...state.nexfootStates,
+          [id]: { ...state.nexfootStates[id], isPushed, lastUpdated: Date.now() },
+        },
+      }));
+    },
+
+    currentPresetIndex: 0,
+    currentPresetName: 'Preset 01: Plexi Lead Crunch',
+    setCurrentPresetIndex: (index) => {
+      const clamped = Math.max(0, Math.min(63, Math.round(index)));
+      set({
+        currentPresetIndex: clamped,
+        currentPresetName: `Preset ${String(clamped + 1).padStart(2, '0')}`,
+      });
+    },
+
+    cortexSlots: buildInitialSlots(),
+    selectedSlotId: 'pre_fx_1',
+    setSelectedSlotId: (slotId) => {
+      dynamicPagingRouter.setSelectedSlotId(slotId);
+      set({
+        selectedSlotId: slotId,
+        paramPageIndex: 0,
+      });
+    },
+
+    toggleSlotBypass: (slotId) => {
+      set((state) => ({
+        cortexSlots: state.cortexSlots.map((slot) =>
+          slot.slotId === slotId ? { ...slot, isBypassed: !slot.isBypassed } : slot
+        ),
+      }));
+    },
+
+    setSlotBypass: (slotId, isBypassed) => {
+      set((state) => ({
+        cortexSlots: state.cortexSlots.map((slot) =>
+          slot.slotId === slotId ? { ...slot, isBypassed } : slot
+        ),
+      }));
+    },
+
+    setSlotModel: (slotId, modelId) => {
+      const model = DEVICE_CATALOG[modelId];
+      if (!model) return;
+      set((state) => ({
+        cortexSlots: state.cortexSlots.map((slot) =>
+          slot.slotId === slotId
+            ? { ...slot, modelId: model.id, modelName: model.name }
+            : slot
+        ),
+      }));
+    },
+
+    paramPageIndex: 0,
+    setParamPageIndex: (index) => {
+      const slot = get().cortexSlots.find((s) => s.slotId === get().selectedSlotId);
+      dynamicPagingRouter.setPageIndex(index, slot?.modelId);
+      set({ paramPageIndex: dynamicPagingRouter.getCurrentPageIndex() });
+    },
+
+    nextParamPage: () => {
+      const slot = get().cortexSlots.find((s) => s.slotId === get().selectedSlotId);
+      const newPage = dynamicPagingRouter.nextPage(slot?.modelId);
+      set({ paramPageIndex: newPage });
+    },
+
+    prevParamPage: () => {
+      const slot = get().cortexSlots.find((s) => s.slotId === get().selectedSlotId);
+      const newPage = dynamicPagingRouter.prevPage(slot?.modelId);
+      set({ paramPageIndex: newPage });
+    },
+
+    updateSlotParamValue: (slotId, paramIndex, value) => {
+      dynamicPagingRouter.setParameterValue(slotId, paramIndex, value);
+      // Force trigger state update
+      set((state) => ({ ...state }));
+    },
+
+    // Profiles
+    activeProfile: profileManager.getActiveProfile(),
+    profiles: profileManager.getProfiles(),
+
+    setActiveProfile: (profileId) => {
+      const p = profileManager.setActiveProfile(profileId);
+      set({ activeProfile: p, profiles: profileManager.getProfiles() });
+    },
+
+    createProfile: (name) => {
+      const p = profileManager.createProfile(name);
+      set({ activeProfile: p, profiles: profileManager.getProfiles() });
+    },
+
+    importProfile: (jsonString) => {
+      const res = profileManager.importProfileJson(jsonString);
+      if (res.success && res.profile) {
+        set({ activeProfile: res.profile, profiles: profileManager.getProfiles() });
+        return { success: true };
+      }
+      return { success: false, error: res.error };
+    },
+
+    deleteProfile: (profileId) => {
+      const ok = profileManager.deleteProfile(profileId);
+      if (ok) {
+        set({
+          activeProfile: profileManager.getActiveProfile(),
+          profiles: profileManager.getProfiles(),
+        });
+      }
+      return ok;
+    },
+
+    // MIDI Learn
+    midiLearnState: midiLearnEngine.getState(),
+    startMidiLearn: (target) => midiLearnEngine.startLearn(target),
+    cancelMidiLearn: () => midiLearnEngine.cancelLearn(),
+
+    // UI
+    logExpanded: false, // 기본값: 접힘 (화면 확보)
+    setLogExpanded: (expanded) => set({ logExpanded: expanded }),
+    toggleLogExpanded: () => set((state) => ({ logExpanded: !state.logExpanded })),
+
+    // Logs
+    logs: [],
+    addLog: (entry) => {
+      const now = new Date();
+      const timeStr =
+        now.toTimeString().split(' ')[0] +
+        '.' +
+        String(now.getMilliseconds()).padStart(3, '0');
+      const newEntry: PacketLogEntry = {
+        ...entry,
+        id: Math.random().toString(36).substring(2, 9),
+        timestamp: timeStr,
+      };
+      set((state) => ({
+        logs: [newEntry, ...state.logs.slice(0, 99)],
+      }));
+    },
+    clearLogs: () => set({ logs: [] }),
+  };
+});

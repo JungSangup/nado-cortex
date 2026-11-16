@@ -61,6 +61,46 @@ export class NanoCortexProtocol {
   }
 
   /**
+   * Builds packet to switch Nano Cortex Presets (0 ~ 63)
+   * 06 C0 08 02 10 <preset 0~63> 1B 00 00 00
+   */
+  public static buildPresetChangePacket(presetIndex: number): Uint8Array {
+    const clampedPreset = Math.max(0, Math.min(63, Math.round(presetIndex)));
+    return new Uint8Array([
+      0x06, 0xC0,
+      0x08, 0x02,
+      0x10, clampedPreset,
+      0x1B, 0x00, 0x00, 0x00,
+    ]);
+  }
+
+  /**
+   * Builds packet to change device/effect model on a slot
+   * [length] C0 18 <modelSlot> 20 <...modelIdBytes> 88 00 00 00
+   */
+  public static buildDeviceModelChangePacket(modelSlot: number, modelId: string): Uint8Array {
+    const encoder = new TextEncoder();
+    const idBytes = encoder.encode(modelId);
+    const payloadLen = 3 + idBytes.length + 4; // 18 slot 20 idBytes + 88 00 00 00
+    const packet = new Uint8Array(2 + payloadLen);
+
+    packet[0] = payloadLen;
+    packet[1] = 0xC0;
+    packet[2] = 0x18;
+    packet[3] = modelSlot;
+    packet[4] = 0x20;
+    packet.set(idBytes, 5);
+
+    const suffixOffset = 5 + idBytes.length;
+    packet[suffixOffset] = 0x88;
+    packet[suffixOffset + 1] = 0x00;
+    packet[suffixOffset + 2] = 0x00;
+    packet[suffixOffset + 3] = 0x00;
+
+    return packet;
+  }
+
+  /**
    * Builds packet to set front-panel Amp Knobs (Gain, Level, Bass, Mid, Treble)
    * 0B C0 18 <id> 20 <value varint 0~255> 28 00 1A 00 00 00
    */
@@ -83,20 +123,6 @@ export class NanoCortexProtocol {
     const clamped = Math.max(0, Math.min(1.0, normalizedValue));
     const floatBytes = new Uint8Array(4);
     new DataView(floatBytes.buffer).setFloat32(0, clamped, true);
-
-    const packet = new Uint8Array(15);
-    packet[0] = 0x0F;
-    packet[1] = 0xC0;
-    packet[2] = 0x08;
-    packet[3] = 0x01;
-    packet[4] = 0x18;
-    packet[5] = modelSlot;
-    packet[6] = 0x20;
-    packet[7] = paramIndex;
-    packet[8] = 0x2D;
-    packet.set(floatBytes, 9);
-    packet[13] = 0x63;
-    packet[14] = 0x00;
 
     return new Uint8Array([
       0x0F, 0xC0,

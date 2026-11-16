@@ -1,16 +1,17 @@
 import { useEffect, useRef } from 'react';
 import { useAppStore } from './core/store';
 import { Header } from './ui/Header';
-import { NexfootVirtualPanel } from './ui/NexfootVirtualPanel';
 import { CortexMonitorPanel } from './ui/CortexMonitorPanel';
+import { NexfootVirtualPanel } from './ui/NexfootVirtualPanel';
 import { EventLogConsole } from './ui/EventLogConsole';
 import { BridgeRouter } from './core/BridgeRouter';
 import { WebBluetoothManager } from './bluetooth/WebBluetoothManager';
 import { WebMidiManager } from './midi/WebMidiManager';
 import { MockBluetoothDevice } from './mocks/MockBluetoothDevice';
 import { MockMidiAccess } from './mocks/MockMidiAccess';
-import { NexfootEncoderId } from './types';
+import { NexfootEncoderId, CortexSlotId } from './types';
 import { NexfootParser } from './midi/NexfootParser';
+import { midiLearnEngine } from './core/MidiLearnEngine';
 
 export default function App() {
   const { isMockMode, setBleStatus, setMidiStatus, addLog } = useAppStore();
@@ -70,12 +71,18 @@ export default function App() {
         if (data.length >= 3) {
           const status = data[0] & 0xF0;
           const ch = (data[0] & 0x0F) + 1;
+          const cc = data[1];
+          const val = data[2];
+
           if (status === 0xB0) {
             addLog({
               direction: 'midi_in',
               source: 'RAW_MIDI',
-              message: `Raw CC [Ch:${ch} CC:${data[1]} Val:${data[2]}]`,
+              message: `Raw CC [Ch:${ch} CC:${cc} Val:${val}]`,
             });
+
+            // Feed to MidiLearnEngine if active
+            midiLearnEngine.handleMidiMessage(ch, cc, val);
           }
         }
       },
@@ -133,7 +140,6 @@ export default function App() {
     } else {
       const ok = await bleManagerRef.current?.connect();
       if (ok) {
-        // Request Nano Cortex current state and metadata over BLE
         setTimeout(async () => {
           // Metadata request
           await bleManagerRef.current?.sendRawPacket(
@@ -190,6 +196,22 @@ export default function App() {
     }
   };
 
+  const handleToggleSlot = (slotId: CortexSlotId) => {
+    bridgeRouterRef.current?.toggleSlot(slotId);
+  };
+
+  const handleChangePreset = (presetIndex: number) => {
+    bridgeRouterRef.current?.changePreset(presetIndex);
+  };
+
+  const handleChangeModel = (slotId: CortexSlotId, modelId: string) => {
+    bridgeRouterRef.current?.changeSlotModel(slotId, modelId);
+  };
+
+  const handleParamChange = (slotId: CortexSlotId, paramIndex: number, value: number) => {
+    bridgeRouterRef.current?.updateSlotParameter(slotId, paramIndex, value);
+  };
+
   return (
     <div className="min-h-screen bg-cortex-dark text-cortex-text flex flex-col">
       <Header
@@ -199,21 +221,28 @@ export default function App() {
         onDisconnectMidi={handleDisconnectMidi}
       />
 
+      {/* Main 3-Section Dashboard: 1. Cortex Monitor -> 2. Nexfoot Panel -> 3. Event Logs */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+        {/* 1. 최상단: Nano Cortex 실시간 모니터 & 컨트롤러 (슬롯 및 파라미터 인스펙터) */}
+        <CortexMonitorPanel
+          onToggleSlot={handleToggleSlot}
+          onChangePreset={handleChangePreset}
+          onChangeModel={handleChangeModel}
+          onParamChange={handleParamChange}
+        />
+
+        {/* 2. 중단: Livtra Nexfoot 가상 패널 (엔코더 게이지 및 페이징 인디케이터) */}
         <NexfootVirtualPanel
           onSimulateRotate={handleSimulateRotate}
           onSimulatePush={handleSimulatePush}
         />
 
-        <CortexMonitorPanel
-          onToggleSlot={(slotIndex) => bridgeRouterRef.current?.toggleSlot(slotIndex)}
-        />
-
+        {/* 3. 최하단: 실시간 패킷 및 미디 이벤트 로그 콘솔 (접기/펼치기 가능) */}
         <EventLogConsole />
       </main>
 
       <footer className="border-t border-cortex-border py-4 px-6 text-center text-xs text-cortex-muted">
-        Nado Cortex v0.0.1 • Spec-Driven Development • Built for Neural DSP Nano Cortex & Livtra Nexfoot
+        Nado Cortex v0.0.2 • Spec-Driven Development • Built for Neural DSP Nano Cortex & Livtra Nexfoot
       </footer>
     </div>
   );

@@ -1,124 +1,195 @@
 import React from 'react';
 import { useAppStore } from '../core/store';
-import { Sliders, Volume2, Power } from 'lucide-react';
+import { Sliders, Volume2, Power, ChevronLeft, ChevronRight, Layers } from 'lucide-react';
+import { CortexSlotId } from '../types';
+import { getModelsForSlot } from '../core/DeviceCatalog';
+import { SlotParameterRack } from './SlotParameterRack';
 
 interface CortexMonitorPanelProps {
-  onToggleSlot?: (slotIndex: number) => void;
+  onToggleSlot?: (slotId: CortexSlotId) => void;
+  onChangePreset?: (presetIndex: number) => void;
+  onChangeModel?: (slotId: CortexSlotId, modelId: string) => void;
+  onParamChange?: (slotId: CortexSlotId, paramIndex: number, value: number) => void;
 }
 
-export const CortexMonitorPanel: React.FC<CortexMonitorPanelProps> = ({ onToggleSlot }) => {
+export const CortexMonitorPanel: React.FC<CortexMonitorPanelProps> = ({
+  onToggleSlot,
+  onChangePreset,
+  onChangeModel,
+  onParamChange,
+}) => {
   const {
     currentPresetIndex,
-    currentPresetName,
+    setCurrentPresetIndex,
     cortexSlots,
+    selectedSlotId,
+    setSelectedSlotId,
     toggleSlotBypass,
-    cortexParameters,
+    setSlotModel,
   } = useAppStore();
 
+  const handlePrevPreset = () => {
+    const nextIdx = Math.max(0, currentPresetIndex - 1);
+    setCurrentPresetIndex(nextIdx);
+    if (onChangePreset) onChangePreset(nextIdx);
+  };
+
+  const handleNextPreset = () => {
+    const nextIdx = Math.min(63, currentPresetIndex + 1);
+    setCurrentPresetIndex(nextIdx);
+    if (onChangePreset) onChangePreset(nextIdx);
+  };
+
+  const handlePresetSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const nextIdx = parseInt(e.target.value, 10);
+    setCurrentPresetIndex(nextIdx);
+    if (onChangePreset) onChangePreset(nextIdx);
+  };
+
+  const handleModelChange = (slotId: CortexSlotId, modelId: string) => {
+    setSlotModel(slotId, modelId);
+    if (onChangeModel) onChangeModel(slotId, modelId);
+  };
+
   return (
-    <section className="bg-cortex-card border border-cortex-border rounded-2xl p-6 shadow-xl">
-      {/* Panel Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+    <section className="bg-cortex-card border border-cortex-border rounded-2xl p-5 sm:p-6 shadow-xl">
+      {/* Panel Top Header: Title & Preset Controller */}
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-5 border-b border-cortex-border/60 pb-4">
         <div className="flex items-center gap-2.5">
           <Sliders className="w-5 h-5 text-cortex-cyan" />
           <h2 className="text-base font-bold text-white tracking-wide">
-            NANO CORTEX 실시간 모니터
+            NANO CORTEX 실시간 모니터 & 컨트롤러
           </h2>
         </div>
-        <div className="flex items-center gap-2 bg-cortex-panel px-3.5 py-1.5 rounded-xl border border-cortex-border">
+
+        {/* Preset Selector */}
+        <div className="flex items-center gap-2 bg-cortex-panel px-3 py-1.5 rounded-xl border border-cortex-border">
           <Volume2 className="w-4 h-4 text-cortex-cyan" />
-          <span className="text-xs text-cortex-muted">현재 프리셋:</span>
-          <span className="text-xs font-mono font-bold text-white">
-            [{String(currentPresetIndex).padStart(2, '0')}] {currentPresetName}
-          </span>
+          <span className="text-xs text-cortex-muted font-medium">프리셋:</span>
+          
+          <button
+            onClick={handlePrevPreset}
+            disabled={currentPresetIndex <= 0}
+            className="p-1 rounded text-cortex-muted hover:text-white disabled:opacity-30 disabled:hover:text-cortex-muted transition-all"
+            title="이전 프리셋"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          <select
+            value={currentPresetIndex}
+            onChange={handlePresetSelect}
+            className="bg-cortex-dark text-xs font-mono font-bold text-white px-2 py-1 rounded-lg border border-cortex-border focus:outline-none focus:border-cortex-cyan"
+          >
+            {Array.from({ length: 64 }).map((_, i) => (
+              <option key={i} value={i}>
+                [{String(i + 1).padStart(2, '0')}] Preset {String(i + 1).padStart(2, '0')}
+              </option>
+            ))}
+          </select>
+
+          <button
+            onClick={handleNextPreset}
+            disabled={currentPresetIndex >= 63}
+            className="p-1 rounded text-cortex-muted hover:text-white disabled:opacity-30 disabled:hover:text-cortex-muted transition-all"
+            title="다음 프리셋"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
       {/* Signal Chain Blocks */}
-      <div className="mb-6">
-        <div className="text-xs font-semibold text-cortex-muted mb-3 uppercase tracking-wider">
-          시그널 체인 (Signal Chain Blocks)
+      <div>
+        <div className="text-xs font-semibold text-cortex-muted mb-3 uppercase tracking-wider flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Layers className="w-3.5 h-3.5 text-cortex-cyan" />
+            <span>시그널 체인 슬롯 (클릭하여 상세 파라미터 확인)</span>
+          </div>
+          <span className="text-[11px] font-mono text-cortex-cyan lowercase">
+            * 슬롯 클릭 시 하단 파라미터 랙에 즉시 반영
+          </span>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5">
           {cortexSlots.map((slot) => {
             const isActive = !slot.isBypassed;
+            const isSelected = slot.slotId === selectedSlotId;
+            const availableModels = getModelsForSlot(slot.slotId);
+
             return (
-              <button
-                key={slot.slotIndex}
-                onClick={() => onToggleSlot ? onToggleSlot(slot.slotIndex) : toggleSlotBypass(slot.slotIndex)}
-                className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between h-20 ${
-                  isActive
-                    ? 'bg-cortex-cyan/10 border-cortex-cyan/50 text-white shadow-md shadow-cortex-cyan/10'
-                    : 'bg-cortex-panel/50 border-cortex-border/60 text-slate-400 opacity-60'
+              <div
+                key={slot.slotId}
+                onClick={() => setSelectedSlotId(slot.slotId)}
+                className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between min-h-[110px] ${
+                  isSelected
+                    ? 'ring-2 ring-cortex-cyan border-cortex-cyan bg-cortex-panel shadow-lg shadow-cortex-cyan/20'
+                    : isActive
+                    ? 'bg-cortex-panel/70 border-cortex-border/80 hover:border-cortex-cyan/40'
+                    : 'bg-cortex-panel/30 border-cortex-border/40 opacity-60'
                 }`}
               >
-                <div className="flex items-center justify-between w-full">
-                  <span className="text-[10px] font-mono text-cortex-muted">
-                    SLOT {slot.slotIndex}
+                {/* Slot Top: Label & Bypass Power Button */}
+                <div className="flex items-center justify-between w-full mb-1">
+                  <span className="text-[10px] font-mono text-cortex-muted font-bold">
+                    {slot.name}
                   </span>
-                  <Power
-                    className={`w-3.5 h-3.5 ${
-                      isActive ? 'text-cortex-cyan animate-pulse' : 'text-slate-500'
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onToggleSlot) onToggleSlot(slot.slotId);
+                      else toggleSlotBypass(slot.slotId);
+                    }}
+                    title={isActive ? '슬롯 끄기 (Bypass)' : '슬롯 켜기 (Active)'}
+                    className={`p-1 rounded-md transition-all ${
+                      isActive
+                        ? 'text-cortex-cyan bg-cortex-cyan/10 hover:bg-cortex-cyan/20'
+                        : 'text-slate-500 bg-slate-800/40 hover:bg-slate-800'
                     }`}
-                  />
+                  >
+                    <Power className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-                <div className="font-bold text-xs truncate">{slot.name}</div>
-                <div className="text-[10px] font-mono font-medium">
+
+                {/* Model Name & Category */}
+                <div className="font-bold text-xs text-white truncate my-1">
+                  {slot.modelName}
+                </div>
+
+                {/* Model Selector Dropdown */}
+                <div className="mt-1" onClick={(e) => e.stopPropagation()}>
+                  <select
+                    value={slot.modelId}
+                    onChange={(e) => handleModelChange(slot.slotId, e.target.value)}
+                    className="w-full bg-cortex-dark/90 text-[10px] text-cortex-muted hover:text-white px-1.5 py-1 rounded border border-cortex-border focus:outline-none focus:border-cortex-cyan truncate"
+                  >
+                    {availableModels.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Status Indicator */}
+                <div className="text-[10px] font-mono mt-1 flex items-center justify-between">
                   {isActive ? (
-                    <span className="text-emerald-400 font-bold">● ACTIVE</span>
+                    <span className="text-emerald-400 font-bold">● ON</span>
                   ) : (
                     <span className="text-slate-500">○ BYPASS</span>
                   )}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Live Parameters (Controlled by Nexfoot Encoders) */}
-      <div>
-        <div className="text-xs font-semibold text-cortex-muted mb-3 uppercase tracking-wider flex items-center justify-between">
-          <span>실시간 파라미터 모니터 (Live Parameter Feedback)</span>
-          <span className="text-[11px] text-cortex-cyan font-mono lowercase">
-            * 넥스풋 노브 조작 시 실시간 동기화
-          </span>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {Object.values(cortexParameters).map((param) => {
-            const percentage = Math.round(param.value * 100);
-            return (
-              <div
-                key={param.id}
-                className="bg-cortex-panel/70 border border-cortex-border/70 rounded-xl p-4 flex flex-col justify-between"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-white tracking-wide">
-                    {param.name}
-                  </span>
-                  <span className="text-sm font-mono font-black text-cortex-cyan">
-                    {percentage}
-                    {param.unit || '%'}
-                  </span>
-                </div>
-
-                {/* Progress bar */}
-                <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden p-0.5 border border-slate-700/60">
-                  <div
-                    className="bg-gradient-to-r from-cortex-cyan to-cortex-purple h-full rounded-full transition-all duration-100"
-                    style={{ width: `${percentage}%` }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between mt-2 text-[10px] font-mono text-cortex-muted">
-                  <span>Slot {param.slotIndex}</span>
-                  <span>ID: {param.id}</span>
+                  {isSelected && (
+                    <span className="text-cortex-cyan text-[9px] font-bold">FOCUS</span>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* Detailed Parameter Rack (Connected to Selected Slot) */}
+      <SlotParameterRack onParamChange={onParamChange} />
     </section>
   );
 };

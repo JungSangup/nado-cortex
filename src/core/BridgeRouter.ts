@@ -2,6 +2,10 @@ import { NexfootEvent } from '../midi/NexfootParser';
 import { RateLimiter } from './RateLimiter';
 import { useAppStore } from './store';
 import { NanoCortexProtocol, AMP_KNOB_IDS } from '../bluetooth/NanoCortexProtocol';
+import { CORTEX_SLOT_CONFIGS, DEVICE_CATALOG } from './DeviceCatalog';
+import { dynamicPagingRouter } from './DynamicPagingRouter';
+import { midiLearnEngine } from './MidiLearnEngine';
+import { CortexSlotId } from '../types';
 
 export interface BridgeRouterConfig {
   throttleIntervalMs?: number;
@@ -22,48 +26,97 @@ export class BridgeRouter {
   }
 
   /**
-   * Toggles a slot bypass state and transmits the real BLE packet to Nano Cortex.
-   * Can be invoked from UI button clicks or footswitch push events.
+   * Switches Nano Cortex preset (0 ~ 63)
    */
-  public toggleSlot(slotIndex: number): void {
+  public changePreset(presetIndex: number): void {
     const store = useAppStore.getState();
-    const slot = store.cortexSlots.find((s) => s.slotIndex === slotIndex);
+    const clamped = Math.max(0, Math.min(63, Math.round(presetIndex)));
+    store.setCurrentPresetIndex(clamped);
+
+    const packet = NanoCortexProtocol.buildPresetChangePacket(clamped);
+    this.sendBlePacket(packet, `Preset Change -> ${clamped + 1} (${store.currentPresetName})`);
+  }
+
+  /**
+   * Changes device/effect model on a slot and sends 0x88 BLE packet
+   */
+  public changeSlotModel(slotId: CortexSlotId, modelId: string): void {
+    const store = useAppStore.getState();
+    const cfg = CORTEX_SLOT_CONFIGS[slotId];
+    const model = DEVICE_CATALOG[modelId];
+    if (!cfg || !model) return;
+
+    store.setSlotModel(slotId, modelId);
+    store.addLog({
+      direction: 'core',
+      source: 'ROUTER',
+      message: `Changed Slot ${cfg.name} Model -> ${model.name}`,
+    });
+
+    const packet = NanoCortexProtocol.buildDeviceModelChangePacket(cfg.modelSlot, modelId);
+    this.sendBlePacket(packet, `Change Model [Slot ${cfg.name}: ${model.name}]`);
+  }
+
+  /**
+   * Directly sets a parameter value from UI or rotary
+   */
+  public updateSlotParameter(slotId: CortexSlotId, paramIndex: number, normalizedValue: number): void {
+    const store = useAppStore.getState();
+    const cfg = CORTEX_SLOT_CONFIGS[slotId];
+    if (!cfg) return;
+
+    const clamped = Math.max(0, Math.min(1.0, normalizedValue));
+    store.updateSlotParamValue(slotId, paramIndex, clamped);
+
+    this.rateLimiter.execute(`${slotId}_${paramIndex}`, () => {
+      let packet: Uint8Array | null = null;
+
+      if (slotId === 'amp') {
+        const knobIds = [AMP_KNOB_IDS.gain, AMP_KNOB_IDS.level, AMP_KNOB_IDS.bass, AMP_KNOB_IDS.mid, AMP_KNOB_IDS.treble];
+        const knobId = knobIds[paramIndex] ?? paramIndex;
+        packet = NanoCortexProtocol.buildAmpKnobPacket(knobId, clamped * 255);
+      } else {
+        packet = NanoCortexProtocol.buildFXParamPacket(cfg.modelSlot, paramIndex, clamped);
+      }
+
+      if (packet) {
+        this.sendBlePacket(packet, `Param ${cfg.name} [P${paramIndex}] ${(clamped * 100).toFixed(0)}%`);
+      }
+    });
+  }
+
+  /**
+   * Toggles a slot bypass state and transmits the real BLE packet to Nano Cortex.
+   */
+  public toggleSlot(slotId: CortexSlotId): void {
+    const store = useAppStore.getState();
+    const slot = store.cortexSlots.find((s) => s.slotId === slotId);
     if (!slot) return;
 
     const nextActiveState = slot.isBypassed; // Currently bypassed -> turn Active
-    store.toggleSlotBypass(slotIndex);
+    store.toggleSlotBypass(slotId);
 
     store.addLog({
       direction: 'core',
       source: 'ROUTER',
-      message: `Toggled Slot ${slotIndex} (${slot.name}) -> ${nextActiveState ? 'ON' : 'BYPASS'}`,
+      message: `Toggled Slot ${slot.name} -> ${nextActiveState ? 'ON' : 'BYPASS'}`,
     });
+
+    const cfg = CORTEX_SLOT_CONFIGS[slotId];
+    if (!cfg) return;
 
     let rawPacket: Uint8Array | null = null;
 
-    // Slot 1: Pre FX 1 (Drive) -> enableSlot 0x04
-    if (slotIndex === 1) {
-      rawPacket = NanoCortexProtocol.buildFXBlockEnablePacket(0x04, nextActiveState);
-    }
-    // Slot 2: Capture / Amp -> slot 1 or 0
-    else if (slotIndex === 2) {
+    if (slotId === 'amp') {
       rawPacket = NanoCortexProtocol.buildCaptureSlotPacket(nextActiveState ? 1 : 0);
-    }
-    // Slot 3: Cab / IR -> slot 1 or 0
-    else if (slotIndex === 3) {
+    } else if (slotId === 'cab') {
       rawPacket = NanoCortexProtocol.buildCabSlotPacket(nextActiveState ? 1 : 0);
-    }
-    // Slot 4: Post FX 1 (Delay) -> enableSlot 0x06
-    else if (slotIndex === 4) {
-      rawPacket = NanoCortexProtocol.buildFXBlockEnablePacket(0x06, nextActiveState);
-    }
-    // Slot 5: Post FX 2 (Reverb) -> enableSlot 0x07
-    else if (slotIndex === 5) {
-      rawPacket = NanoCortexProtocol.buildFXBlockEnablePacket(0x07, nextActiveState);
+    } else {
+      rawPacket = NanoCortexProtocol.buildFXBlockEnablePacket(cfg.enableSlot, nextActiveState);
     }
 
     if (rawPacket) {
-      this.sendBlePacket(rawPacket, `Slot ${slotIndex} (${slot.name}) ${nextActiveState ? 'ON' : 'BYPASS'}`);
+      this.sendBlePacket(rawPacket, `Slot ${slot.name} ${nextActiveState ? 'ON' : 'BYPASS'}`);
     }
   }
 
@@ -72,10 +125,17 @@ export class BridgeRouter {
    */
   public handleNexfootEvent(event: NexfootEvent): void {
     const store = useAppStore.getState();
-    const mapping = store.mappings[event.encoderId];
 
-    if (!mapping) return;
+    // 1. If MIDI Learn is active, check if consumed
+    if (store.midiLearnState.active) {
+      const channel = 1;
+      const cc = event.rawCcOrNote;
+      const val = event.type === 'push' ? (event.isPushed ? 127 : 0) : (event.rotateValue ?? (event.step === 1 ? 0 : 1));
+      const consumed = midiLearnEngine.handleMidiMessage(channel, cc, val);
+      if (consumed) return;
+    }
 
+    // 2. Handle Footswitch Push
     if (event.type === 'push') {
       store.updateNexfootPush(event.encoderId, !!event.isPushed);
 
@@ -86,7 +146,7 @@ export class BridgeRouter {
           message: `SW${event.encoderId} Pushed (CC:${event.rawCcOrNote})`,
         });
 
-        this.handlePushAction(mapping.pushAction);
+        this.handlePushAction(event.encoderId);
       } else {
         store.addLog({
           direction: 'midi_in',
@@ -94,89 +154,79 @@ export class BridgeRouter {
           message: `SW${event.encoderId} Released`,
         });
       }
-    } else if (event.type === 'rotate') {
+    } 
+    // 3. Handle Rotary Rotate
+    else if (event.type === 'rotate') {
       let nextRotVal = event.rotateValue ?? 0;
       if (event.isRelative) {
         const curRot = store.nexfootStates[event.encoderId]?.rotateValue ?? 64;
-        const tick = (event.step ?? 1) * 4; // 4 steps per tick (~3% gauge movement)
+        const tick = (event.step ?? 1) * 4;
         nextRotVal = Math.max(0, Math.min(127, curRot + tick));
       }
       store.updateNexfootRotate(event.encoderId, nextRotVal);
 
-      this.handleRotateAction(mapping.rotateAction, event);
+      this.handleRotateAction(event.encoderId, event);
     }
   }
 
-  private handlePushAction(action: typeof useAppStore.getState.prototype.mappings[1]['pushAction']): void {
-    switch (action.type) {
-      case 'slot_bypass': {
-        const slotIndex = action.slotIndex ?? 1;
-        this.toggleSlot(slotIndex);
-        break;
-      }
+  private handlePushAction(encoderId: number): void {
+    const store = useAppStore.getState();
+    const swKey = `sw${encoderId}` as 'sw1' | 'sw2' | 'sw3' | 'sw4';
+    const binding = store.activeProfile.bindings.find((b) => b.swId === swKey && b.type === 'push');
 
-      case 'tap_tempo': {
-        const store = useAppStore.getState();
+    if (binding) {
+      if (binding.targetType === 'page_nav') {
+        store.nextParamPage();
         store.addLog({
           direction: 'core',
           source: 'ROUTER',
-          message: 'Tap Tempo Triggered',
+          message: `Paging: Switched to Page ${store.paramPageIndex + 1}`,
         });
-        break;
+        return;
+      } else if (binding.targetType === 'slot_toggle' && binding.targetSlotId) {
+        this.toggleSlot(binding.targetSlotId);
+        return;
       }
     }
+
+    // Fallback default push behavior
+    if (encoderId === 1) this.toggleSlot('pre_fx_1');
+    else if (encoderId === 2) this.toggleSlot('pre_fx_2');
+    else if (encoderId === 3) this.toggleSlot('post_fx_1');
+    else if (encoderId === 4) store.nextParamPage();
   }
 
-  private handleRotateAction(action: typeof useAppStore.getState.prototype.mappings[1]['rotateAction'], event: NexfootEvent): void {
+  private handleRotateAction(encoderId: number, event: NexfootEvent): void {
     const store = useAppStore.getState();
+    const selectedSlotId = store.selectedSlotId;
+    const pageIndex = store.paramPageIndex;
+    const targetParamIdx = pageIndex * 4 + (encoderId - 1);
 
-    switch (action.type) {
-      case 'parameter': {
-        if (!action.paramId) return;
-        const paramId = action.paramId;
+    const slot = store.cortexSlots.find((s) => s.slotId === selectedSlotId);
+    const params = dynamicPagingRouter.getParametersForSlot(selectedSlotId, slot?.modelId);
+    const paramDef = params[targetParamIdx];
 
-        // Calculate normalized 0.0 ~ 1.0 float value
-        let normalizedValue: number;
-        if (event.isRelative) {
-          const current = store.cortexParameters[paramId]?.value ?? 0.5;
-          const delta = (event.step ?? 1) * 0.02; // 2% per tick
-          normalizedValue = Math.max(0, Math.min(1.0, current + delta));
-        } else {
-          normalizedValue = (event.rotateValue ?? 0) / 127.0;
-        }
-
-        // Throttle parameter updates via RateLimiter
-        this.rateLimiter.execute(paramId, () => {
-          store.updateParameterValue(paramId, normalizedValue);
-
-          const param = store.cortexParameters[paramId];
-          store.addLog({
-            direction: 'core',
-            source: 'ROUTER',
-            message: `Param ${param?.name ?? paramId} -> ${(normalizedValue * 100).toFixed(1)}%`,
-          });
-
-          // Generate actual Nano Cortex BLE packet
-          // 1) If it's Amp Gain / Level
-          if (paramId === 'drive_gain') {
-            const packet = NanoCortexProtocol.buildAmpKnobPacket(AMP_KNOB_IDS.gain, normalizedValue * 255);
-            this.sendBlePacket(packet, `Amp Gain ${(normalizedValue * 100).toFixed(0)}%`);
-          } else if (paramId === 'drive_level') {
-            const packet = NanoCortexProtocol.buildAmpKnobPacket(AMP_KNOB_IDS.level, normalizedValue * 255);
-            this.sendBlePacket(packet, `Amp Level ${(normalizedValue * 100).toFixed(0)}%`);
-          } else if (paramId === 'delay_mix') {
-            // Post FX 1 (modelSlot 0x02, paramIndex 0)
-            const packet = NanoCortexProtocol.buildFXParamPacket(0x02, 0, normalizedValue);
-            this.sendBlePacket(packet, `Delay Mix ${(normalizedValue * 100).toFixed(0)}%`);
-          } else if (paramId === 'reverb_mix') {
-            // Post FX 2 (modelSlot 0x03, paramIndex 0)
-            const packet = NanoCortexProtocol.buildFXParamPacket(0x03, 0, normalizedValue);
-            this.sendBlePacket(packet, `Reverb Mix ${(normalizedValue * 100).toFixed(0)}%`);
-          }
-        });
-        break;
-      }
+    if (!paramDef) {
+      store.addLog({
+        direction: 'core',
+        source: 'ROUTER',
+        message: `SW${encoderId} Rotated (No param assigned on page ${pageIndex + 1})`,
+      });
+      return;
     }
+
+    let delta = 0;
+    let nextNormVal = 0.5;
+
+    if (event.isRelative) {
+      delta = (event.step ?? 1) * 0.02; // 2% delta per tick
+      nextNormVal = dynamicPagingRouter.adjustParameterValue(selectedSlotId, paramDef.paramIndex, delta);
+    } else {
+      nextNormVal = (event.rotateValue ?? 0) / 127.0;
+      dynamicPagingRouter.setParameterValue(selectedSlotId, paramDef.paramIndex, nextNormVal);
+    }
+
+    this.updateSlotParameter(selectedSlotId, paramDef.paramIndex, nextNormVal);
   }
 
   private sendBlePacket(packet: Uint8Array, description: string): void {

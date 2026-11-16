@@ -1,9 +1,9 @@
 # 시스템 명세서: Nado Cortex (나도 코텍스)
 
 - **상태**: 작성 및 검토 중 (Living Document)
-- **현재 진행 마일스톤**: [v0.0.1 (MVP 연결 기반 구축)](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.1/plan.md)
-- **최신 버전**: v0.0.1
-- **작성일**: 2026-11-13
+- **현재 진행 마일스톤**: [v0.0.2 (동적 MIDI Learn, 디바이스/파라미터 제어 및 UI 개편)](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.2/plan.md)
+- **최신 버전**: v0.0.2
+- **작성일**: 2026-11-16
 
 ---
 
@@ -11,7 +11,8 @@
 
 | 버전 | 일자 | 주요 내용 | 관련 문서 |
 | :--- | :--- | :--- | :--- |
-| **v0.0.1** | 2026-11-13 | • 최초 명세서 작성<br>• Nano Cortex BLE (c304/c305) 및 Livtra Nexfoot Web MIDI 스펙 정의<br>• SDD 워크플로우 (spec ➔ plan ➔ task) 정립<br>• [v0.0.1 완료] MVP 브릿지 파이프라인 및 가상 Mock 대시보드 구축 | [plan.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.1/plan.md), [tasks.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.1/tasks.md), [review.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.1/review.md) |
+| **v0.0.1** | 2026-11-13 | • 최초 명세서 작성<br>• Nano Cortex BLE (c304/c305) 및 Livtra Nexfoot Web MIDI 스펙 정의<br>• SDD 워크플로우 (spec ➔ plan ➔ task) 정립<br>• [v0.0.1 완료] MVP 브릿지 파이프라인 및 가상 Mock 대시보드 구축<br>• 실물 기기(Nano Cortex + Nexfoot) BLE/MIDI 양방향 통신 검증 완료 | [plan.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.1/plan.md), [tasks.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.1/tasks.md), [review.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.1/review.md) |
+| **v0.0.2** | 2026-11-16 | • **1. 동적 MIDI Learn 엔진 추가** (노브/스위치 클릭 후 풋스위치 조작으로 CC/모드 자동 감지 및 바인딩)<br>• **2. 매핑 프로필 관리 추가** (로컬 저장소 다중 저장/불러오기, JSON Export/Import)<br>• **3. 대시보드 레이아웃 전면 개편** (최상단: Cortex 모니터 ➔ 중단: Nexfoot 패널 ➔ 하단: 접기/펼치기 패킷 로그)<br>• **4. Nano Cortex 컨트롤 기능 확장** (프리셋 0~63 전환 및 각 슬롯별 Device/이펙트 모델 종류 변경)<br>• **5. 슬롯별 상세 파라미터 인스펙터** (슬롯 선택 시 해당 슬롯의 전체 파라미터 표시 및 화면 조절)<br>• **6. Nexfoot 로터리 다이내믹 페이징** (선택 슬롯 파라미터를 SW 1~4 노브에 자동 할당, 4개 초과 시 페이징 지원) | [plan.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.2/plan.md) *(작성 예정)* |
 
 ---
 
@@ -29,6 +30,7 @@
 1. **Web MIDI API**를 통해 **Livtra Nexfoot** 컨트롤러의 푸시(Push) 및 로터리(Rotate) 회전 신호를 수신합니다.
 2. **Web Bluetooth API**를 통해 **Neural DSP Nano Cortex**와 직접 무선으로 연결합니다.
 3. 지능형 브릿지이자 시각적 에디터로서, Nexfoot의 노브 회전 신호를 Nano Cortex의 실시간 BLE 파라미터 제어 패킷으로 변환하여 송신합니다.
+4. 하드웨어 설정 변경에 구애받지 않는 **MIDI Learn**과 **파라미터 페이징**을 통해 무대 위에서 발끝으로 Nano Cortex의 모든 파라미터를 완벽하게 제어합니다.
 
 ---
 
@@ -45,32 +47,33 @@
 │              웹 브라우저 (호스트 플랫폼)                 │
 │                                                        │
 │  ┌────────────────────┐      ┌──────────────────────┐  │
-│  │   Web MIDI 모듈     │      │     UI 대시보드      │  │
-│  │  - 장치 감지/수신  │      │  - 시각적 시그널체인 │  │
-│  │  - 이벤트 정규화   │      │  - 매핑 매트릭스     │  │
-│  └─────────┬──────────┘      │  - 프리셋 뷰어       │  │
-│            │                 └──────────┬───────────┘  │
-│            ▼                            ▼              │
-│  ┌──────────────────────────────────────────────────┐  │
+│  │   Web MIDI 모듈     │      │   UI 대시보드 v0.0.2 │  │
+│  │  - 장치 감지/수신  │      │  - [1] Cortex 모니터 │  │
+│  │  - CC/상대틱 정규화│      │  - [2] 슬롯 파라미터 │  │
+│  └─────────┬──────────┘      │  - [3] Nexfoot 패널  │  │
+│            │                 │  - [4] 접이식 로그   │  │
+│            ▼                 └──────────┬───────────┘  │
+│  ┌──────────────────────────────────────┴───────────┐  │
 │  │               핵심 매핑 엔진 (Core Engine)       │  │
-│  │  - MIDI Learn / 프로필 저장 (LocalStorage)       │  │
-│  │  - 값 스케일링 (0~127 -> 파라미터 Float 정규화)   │  │
-│  │  - BLE 대역폭 보호를 위한 스로틀링/레이트리미터   │  │
+│  │  - 동적 MIDI Learn 엔진 (CC & 모드 자동 학습)    │  │
+│  │  - 다이내믹 파라미터 페이징 (Slot Params -> SW1~4)│  │
+│  │  - 프로필 관리 시스템 (Local Storage & JSON)     │  │
+│  │  - BLE 대역폭 보호를 위한 30ms RateLimiter        │  │
 │  └──────────────────────┬───────────────────────────┘  │
 │                         │                              │
 │                         ▼                              │
 │  ┌──────────────────────────────────────────────────┐  │
 │  │             Web Bluetooth 모듈                   │  │
-│  │  - GATT 클라이언트 (Service & Characteristic)    │  │
-│  │  - 패킷 프레이밍 및 조립 ([길이]|C0|[데이터])    │  │
-│  │  - Protocol Buffers (Protobuf) 인코딩/디코딩      │  │
+│  │  - GATT 클라이언트 (Service A002/A003, C304/C305)│  │
+│  │  - 패킷 프레이밍 및 순차 전송 큐 (WithResponse)  │  │
+│  │  - NanoCortexProtocol 바이너리 직렬화            │  │
 │  └──────────────────────┬───────────────────────────┘  │
 └─────────────────────────┼──────────────────────────────┘
                           │ Bluetooth LE 무선 통신
                           ▼
 ┌────────────────────────────────────────────────────────┐
 │               Neural DSP Nano Cortex                   │
-│   (실시간 파라미터 변경, 블록 온오프, 프리셋 전환 수신)│
+│   (실시간 파라미터 변경, 블록 온오프, 디바이스/프리셋)  │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -81,97 +84,122 @@
 ### 3.1 Neural DSP Nano Cortex (Bluetooth LE)
 - **연결 방식**: Web Bluetooth API (`navigator.bluetooth.requestDevice`).
 - **GATT 서비스 및 특성(Characteristic)**:
-  - **Write Characteristic (`c304`)**: 호스트(웹앱)에서 페달로 제어 커맨드 및 파라미터 업데이트 전송.
-  - **Notify Characteristic (`c305`)**: 페달에서 호스트로 현재 상태, 프리셋 정보, 캡처 파라미터 등을 알림 형태로 수신.
+  - **Primary Service UUIDs**:
+    - `0000a002-0000-1000-8000-00805f9b34fb` (A002)
+    - `0000a003-0000-1000-8000-00805f9b34fb` (A003)
+  - **Write Characteristic (`c304`)**: `0000c304-0000-1000-8000-00805f9b34fb` (`writeValueWithResponse` 사용).
+  - **Notify Characteristic (`c305`)**: `0000c305-0000-1000-8000-00805f9b34fb` (실시간 하드웨어 알림 수신).
 - **패킷 프레이밍 구조**:
-  $$\text{[전체 길이]} \parallel \text{0xC0 (구분자)} \parallel \text{[Protobuf 페이로드]} \parallel \text{[32-bit LE 메시지 타입]}$$
-- **패킷 분할 및 재조합 (Fragmentation & Reassembly)**:
-  - BLE MTU 크기를 초과하는 긴 페이로드는 여러 패킷으로 분할 전송됩니다. 수신 측에서는 프레이밍 구분자(Delimiter)와 길이를 기준으로 완전한 하나의 메시지로 재조합하여 디코딩합니다.
-- **데이터 직렬화 포맷**: Google Protocol Buffers (Protobuf).
-- **주요 지원 명령**:
-  - `GET_PRESET_LIST`: 저장된 64개 프리셋 목록 조회.
-  - `LOAD_PRESET(id)`: 지정된 프리셋 슬롯 활성화.
-  - `SET_SLOT_STATE(slotIndex, isBypassed)`: 게이트, 드라이브, 앰프, 캐비닛, FX1~FX5 블록 바이패스/활성화.
-  - `SET_PARAMETER_VALUE(slotIndex, paramId, normalizedValue)`: 슬롯 내부의 연속형 파라미터 값 설정 ($0.0 \sim 1.0$).
-  - `SET_TUNER(state)`: 튜너 모드 켜기/끄기.
-  - `TAP_TEMPO`: 탭 템포 트리거.
+  $$\text{[전체 길이]} \parallel \text{0xC0 (구분자)} \parallel \text{[바이너리 페이로드]} \parallel \text{[32-bit LE 메시지 타입]}$$
+- **주요 바이너리 명령 패킷**:
+  - **FX 블록 활성화/바이패스**:
+    `[0x0A, 0xC0, 0x08, 0x01, 0x18, enableSlot, 0x20, value, 0x1F, 0x00, 0x00, 0x00]`
+    - Pre FX 1 (0x04), Pre FX 2 (0x05), Post FX 1 (0x06), Post FX 2 (0x07), Post FX 3 (0x08)
+    - `value`: `0x00` (Active 켜짐), `0x01` (Bypass 꺼짐)
+  - **Capture / Amp 슬롯 선택 및 바이패스**:
+    `[0x08, 0xC0, 0x18, 0x01, 0x20, slot, 0x1C, 0x00, 0x00, 0x00]` (0: 바이패스, 1~25: 캡처 슬롯)
+  - **Cab / IR 슬롯 선택 및 바이패스**:
+    `[0x08, 0xC0, 0x18, 0x03, 0x20, slot, 0x1C, 0x00, 0x00, 0x00]` (0: 바이패스, 1~5: IR 슬롯)
+  - **Amp 전면 노브 조절 (0~255)**:
+    `[0x0B, 0xC0, 0x18, knobId, 0x20, value, 0x28, 0x00, 0x1A, 0x00, 0x00, 0x00]`
+    - `gain: 0x00, level: 0x01, bass: 0x02, mid: 0x03, treble: 0x04`
+  - **연속형 FX 파라미터 조절 (Float32 LE 0.0 ~ 1.0)**:
+    `[0x0F, 0xC0, 0x08, 0x01, 0x18, modelSlot, 0x20, paramIndex, 0x2D, ...float32LE, 0x63, 0x00, 0x00, 0x00]`
+  - **FX 모델 변경 (Device Model Change)**:
+    `[7 + modelId.length, 0xC0, 0x18, modelSlot, 0x20, ...modelId, 0x88, 0x00, 0x00, 0x00]`
 
 ### 3.2 Livtra Nexfoot (Web MIDI)
-- **하드웨어 제원**:
-  - 4개의 푸시-로터리 엔코더 풋스위치 (SW1, SW2, SW3, SW4).
-  - 1개의 외부 익스프레션 페달 입력 (EXP 1).
-- **입력 모달리티(신호 방식)**:
-  - **푸시 (Push / Press / Long Press)**:
-    - 기본 전송 신호: MIDI CC (토글형 / 모멘터리) 또는 Note On/Off.
-  - **로테이트 (Rotate / 회전)**:
-    - 모드 1: 절대값 CC ($0 \sim 127$).
-    - 모드 2: 상대값 CC (2의 보수 방식 또는 증감 신호: `+1` / `-1`).
-- **매핑 유형**:
-  1. **연속형 파라미터 제어 (Rotary)**:
-     - CC 회전값($0 \sim 127$ 또는 상대값)을 Nano Cortex 파라미터의 실수 범위 $[min, max]$로 매핑.
-     - 테이퍼 곡선 지원: Linear(선형), Logarithmic(로그형), Exponential(지수형).
-  2. **개별 토글 제어 (Push)**:
-     - 풋스위치 누름 동작을 이펙트 블록 바이패스(On/Off) 또는 튜너 On/Off로 매핑.
-  3. **단계형 탐색 제어 (Rotary / Push)**:
-     - 프리셋 이전/다음 스크롤, 뱅크 전환.
+- **하드웨어 기본 CC 규격 (실기기 검증 완료)**:
+  - SW 1 (A): Push `CC:21` (Val 127/0) | Rotate `CC:57` (상대 모드: Val 0=시계방향 CW, Val 1=반시계방향 CCW)
+  - SW 2 (B): Push `CC:22` | Rotate `CC:58`
+  - SW 3 (C): Push `CC:23` | Rotate `CC:59`
+  - SW 4 (D): Push `CC:24` | Rotate `CC:60`
+  - EXP In: `CC:1` (0~127)
+- **동적 적응 지원**:
+  - MIDI Learn 기능을 통해 사용자가 팩토리 기본값이 아닌 임의의 CC 번호나 절대값 모드로 설정하더라도 자동 감지하여 처리.
 
 ---
 
 ## 4. 기능 요구사항 (Functional Requirements)
 
 ### 4.1 연결 및 동기화 관리
-- **FR-01 (BLE 페어링)**: 단 한 번의 클릭으로 Nano Cortex를 검색하고 연결할 수 있는 UI 제공 (연결 끊김, 연결 중, 연결됨, 동기화 중 상태 표시).
-- **FR-02 (MIDI 장치 선택)**: 사용 가능한 Web MIDI 입력 장치를 자동 탐색하고 드롭다운으로 선택 가능하게 함 ("NEXFOOT" 이름 감지 시 자동 선택).
-- **FR-03 (자동 재연결 및 상태 복원)**: 무선 연결이 예기치 않게 끊겼다가 복구될 경우, 사용자가 페이지를 새로고침하지 않아도 현재 프리셋과 파라미터 상태를 자동 재조회하여 동기화.
+- **FR-01 (BLE 페어링)**: Nano Cortex를 단 한 번의 클릭으로 검색하고 페어링하는 기능 제공.
+- **FR-02 (MIDI 장치 선택)**: 사용 가능한 Web MIDI 입력 장치 목록 표시 및 선택.
+- **FR-03 (자동 재연결 및 핸드셰이크)**: 연결 즉시 기기 메타데이터(`06 C0 08 03 ...`) 및 현재 프리셋 상태(`0C C0 08 03 ...`)를 요청하여 동기화.
 
-### 4.2 파라미터 및 이펙트 제어
-- **FR-04 (시그널 체인 시각화)**: Nano Cortex의 전체 시그널 체인을 화면에 직관적으로 표현:
-  - Input Gate (노이즈 게이트)
-  - Pre-FX (오버드라이브 / 부스트)
-  - Neural Capture (앰프 / 스톰프 캡처)
-  - Cab / IR (캐비닛 시뮬레이션)
-  - Post-FX 1 ~ 5 (딜레이, 리버브, 코러스, 플랜저, 트레몰로 등)
-- **FR-05 (실시간 파라미터 변조)**:
-  - 매핑된 Nexfoot 엔코더를 돌렸을 때 25ms 미만의 체감 레이턴시로 Nano Cortex의 지정 파라미터가 실시간 변경되어야 함.
-  - BLE 무선 대역폭 포화를 방지하기 위한 스로틀링(초당 최대 30~50 패킷 송신 제어) 적용.
+### 4.2 [신규 v0.0.2] 화면 레이아웃 재구성
+- **FR-04 (사용자 중심 레이아웃 순서)**:
+  1. **최상단**: **Nano Cortex 실시간 모니터** (프리셋 셀렉터, 시그널 체인 슬롯, 활성 슬롯의 상세 파라미터 컨트롤 랙)
+  2. **중단**: **Livtra Nexfoot 컨트롤러 패널** (SW 1~4 가상 엔코더 게이지 및 푸시 LED, 현재 파라미터 페이징 인디케이터)
+  3. **최하단**: **실시간 패킷 로그 콘솔 (접기/펼치기 Collapsible)**: 평소에는 접어두어 화면을 깔끔하게 유지하고, 디버깅이나 패킷 확인이 필요할 때 원클릭으로 펼침.
 
-### 4.3 매핑 엔진 및 MIDI Learn
-- **FR-06 (MIDI Learn 기능)**: 화면의 특정 노브를 클릭하여 활성화한 후, Nexfoot의 엔코더를 돌리거나 스위치를 누르면 해당 MIDI 신호가 즉시 해당 노브에 자동 바인딩.
-- **FR-07 (매핑 프로필 프리셋)**:
-  - 매핑 구성을 로컬(`localStorage`)에 저장하고 JSON 파일로 내보내기/가져오기 지원.
-  - **Livtra Nexfoot + Nano Cortex 기본 추천 프로필 제공**:
-    - **엔코더 1**: 푸시 = 드라이브 On/Off | 회전 = 드라이브 게인
-    - **엔코더 2**: 푸시 = 딜레이 On/Off | 회전 = 딜레이 피드백 / 믹스
-    - **엔코더 3**: 푸시 = 리버브 On/Off | 회전 = 리버브 디케이 / 믹스
-    - **엔코더 4**: 푸시 = 탭 템포(짧게) / 튜너(길게) | 회전 = 프리셋 이전/다음 탐색
+### 4.3 [신규 v0.0.2] Nano Cortex 컨트롤 기능 (프리셋 & 디바이스 변경)
+- **FR-05 (프리셋 변경)**:
+  - 화면 상단에서 Nano Cortex의 프리셋(0~63)을 드롭다운 또는 이전/다음 버튼으로 즉시 전환.
+  - 프리셋 전환 시 실제 BLE 명령 및 MIDI PC 전송.
+- **FR-06 (슬롯별 Device / 이펙트 모델 변경)**:
+  - 각 슬롯(Pre FX 1/2, Capture, Cab/IR, Post FX 1/2/3) 클릭 시 현재 로드된 모델을 변경할 수 있는 디바이스 선택 팝업/드롭다운 제공.
+  - 선택 가능한 주요 라이브러리:
+    - Pre-FX: Rodent Drive, Tube Screamer, Classic Fuzz, Chorus, Compressor 등
+    - Capture: UK 100 Lead, Plexi, US Clean 등 앰프/스톰프 캡처 목록
+    - Cab/IR: 4x12 Greenback, 2x12 Vintage 30 등 IR 슬롯
+    - Post-FX: Analog Delay, Digital Delay, Plate Reverb, Hall Reverb, Tremolo, Flanger 등
+  - 모델 변경 시 즉시 Nano Cortex로 `0x88` 모델 교체 BLE 패킷을 전송하여 기기 내부 사운드 엔진 업데이트.
+
+### 4.4 [신규 v0.0.2] 슬롯별 상세 파라미터 인스펙터
+- **FR-07 (슬롯 포커스 & 전체 파라미터 노출)**:
+  - 시그널 체인 블록(예: Pre FX 1 Drive 또는 Post FX 1 Delay)을 클릭하여 포커스를 지정하면, 해당 슬롯이 가진 **모든 세부 파라미터 노브/슬라이더가 하단 상세 랙에 일목요연하게 표시됨.**
+  - 예 (Drive): Gain, Tone, Level
+  - 예 (Delay): Time, Feedback, Mix, Tone, Modulation
+  - 예 (Reverb): Decay, Pre-Delay, Mix, High Cut, Low Cut
+- **FR-08 (화면 직접 조절)**:
+  - 마우스 드래그 또는 휠을 통해 화면에서 슬라이더를 직접 움직여 실시간으로 Nano Cortex의 해당 파라미터 값을 조절 가능.
+
+### 4.5 [신규 v0.0.2] Nexfoot 로터리 다이내믹 페이징 매핑
+- **FR-09 (선택 슬롯 파라미터 ➔ SW 1~4 자동 바인딩)**:
+  - 사용자가 화면에서 특정 슬롯을 선택하면, 해당 슬롯의 파라미터 1~4번이 Nexfoot의 **SW 1, SW 2, SW 3, SW 4 로터리 엔코더에 1:1로 즉시 자동 할당**됨.
+- **FR-10 (4개 초과 파라미터 페이징 제어)**:
+  - 슬롯의 파라미터가 4개를 초과하는 경우 (예: 5~8개 파라미터):
+    - `[Page 1: 1~4번 파라미터]` ↔ `[Page 2: 5~8번 파라미터]` 페이징 내비게이션 제공.
+    - 화면의 페이징 버튼 클릭 또는 지정된 풋스위치 동작(예: 특정 스위치 길게 누름)으로 페이지를 전환하여 모든 파라미터를 발끝으로 완벽하게 제어 가능.
+
+### 4.6 [신규 v0.0.2] 동적 MIDI Learn 엔진
+- **FR-11 (원클릭 MIDI Learn)**:
+  - 화면의 특정 노브 또는 슬롯 온오프 버튼 옆의 `[Learn]` 버튼 클릭 시 "미디 입력 대기 모드"로 진입.
+  - Nexfoot의 풋스위치를 밟거나 엔코더를 돌리면 해당 CC 번호 및 채널을 자동 낚아채서(Sniffing) 바인딩 완료.
+- **FR-12 (상대값/절대값 모드 자동 판별)**:
+  - 입력되는 미디 값 패턴을 분석하여 `Val: 0/1` 상대 모드(Relative)인지 `Val: 0~127` 절대 모드(Absolute)인지 스스로 판별하여 적합한 계산식 적용.
+- **FR-13 (범위 및 스케일링 설정)**:
+  - 파라미터의 최소값(Min)과 최대값(Max) 및 반전(Invert) 설정 지원 (예: 게인을 30%~80% 사이에서만 조절).
+
+### 4.7 [신규 v0.0.2] 매핑 프로필 관리
+- **FR-14 (프로필 로컬 저장 및 전환)**:
+  - 곡별, 연주 환경별 매핑 구성을 이름 붙여 `localStorage`에 다중 저장하고 원클릭으로 전환.
+- **FR-15 (JSON Export / Import)**:
+  - 전체 매핑 프로필을 JSON 파일로 내보내어 백업하거나, 다른 사용자의 프로필을 파일로 불러오기 지원.
 
 ---
 
 ## 5. 비기능 요구사항 (Non-Functional Requirements)
 
-- **NFR-01 (성능 및 지연 시간)**: MIDI 입력 발생 시점부터 Web Bluetooth 패킷 송신 완료까지의 내부 처리 지연 시간은 15ms 이내여야 함.
-- **NFR-02 (무설치 웹 배포)**: 별도의 클라이언트 설치 없이 정적 웹 호스팅(GitHub Pages 등) 환경에서 단독으로 동작하는 SPA/PWA 형태로 제공.
-- **NFR-03 (오프라인 사용성)**: 공연장이나 합주실 등 인터넷 연결이 원활하지 않은 환경에서도 완벽히 동작하도록 PWA Service Worker 오프라인 캐싱 지원.
-- **NFR-04 (크로스 플랫폼 호환성)**:
-  - 데스크톱: macOS, Windows, Linux 환경의 Chrome / Edge 브라우저 지원.
-  - 모바일/태블릿: 안드로이드 Chrome, iOS Web Bluetooth 전용 브라우저(Bluefy 등) 지원.
+- **NFR-01 (지연 시간)**: MIDI 입력 발생부터 BLE 전송까지 내부 처리 15ms 이하 유지.
+- **NFR-02 (대역폭 보호)**: 로터리를 아무리 빠르게 회전시켜도 30ms 스로틀러(`RateLimiter`)를 통해 BLE 패킷 유실 방지.
+- **NFR-03 (무설치 & 오프라인)**: PWA 기반 단독 웹앱으로 인터넷 연결 없는 합주실/무대에서도 로컬 구동 가능.
+- **NFR-04 (크로스 플랫폼)**: macOS/Windows Chrome/Edge 및 iOS Bluefy 호환.
 
 ---
 
 ## 6. 검증 및 테스트 계획
 
-1. **프로토콜 단위 테스트 (Mock Adapter)**:
-   - 물리 기기 없이도 테스트를 실행할 수 있도록 Web Bluetooth 및 Web MIDI의 가상 Mock 어댑터를 구축하여 Vitest 단위 테스트 수행.
-   - 패킷 프레이밍 인코딩/디코딩 및 분할 패킷 재조합 로직 검증.
-2. **MIDI 변환 정밀도 검증**:
-   - 상대값 및 절대값 회전 신호가 튐(Jitter)이나 누락 없이 $0.0 \sim 1.0$의 실수 범위로 정확히 스케일링되는지 검증.
-3. **부하 및 스트레스 테스트**:
-   - 엔코더를 매우 빠르게 회전시켰을 때(초당 100회 이상 이벤트 발생) 스로틀링 로직이 안정적으로 작동하여 BLE 연결이 끊어지거나 버퍼가 넘치지 않는지 확인.
+1. **MIDI Learn 단위 테스트**: 가상 미디 신호 주입 시 CC 번호 및 Relative/Absolute 모드 자동 식별 검증.
+2. **다이내믹 페이징 단위 테스트**: 슬롯 전환 시 파라미터 1~4번 자동 바인딩 및 4개 초과 파라미터의 Page 1/2 전환 동작 검증.
+3. **프로필 저장/복원 테스트**: JSON 직렬화/역직렬화 및 `localStorage` 무결성 검증.
+4. **BLE 모델 변경 패킷 검증**: 디바이스 변경 시 `0x88` BLE 패킷 구조 정확성 검증.
 
 ---
 
 ## 7. 승인 및 다음 단계
 본 명세서에 대한 검토가 완료되면 다음 절차에 따라 진행합니다:
-1. **2단계: 기술 구조 및 UI/UX 설계 (`docs/plan.md`)** - 전체 기술 구조, 모듈별 아키텍처 및 UI/UX 디자인 정의
-2. **3단계: 구체적 구현 작업 정의 (`docs/tasks.md`)** - 구현 전 모듈별 세부 Task 목록(WBS) 및 의존성, 완료 기준 수립
-3. **4단계: 본격적인 구현 및 검증** - Task 순서에 따른 구현 및 테스트
+1. **2단계: v0.0.2 기술 구조 및 UI/UX 설계 (`docs/v0.0.2/plan.md`)** - 6가지 신규 기능의 상세 아키텍처 및 재구성된 UI 와이어프레임 설계
+2. **3단계: v0.0.2 세부 구현 작업 정의 (`docs/v0.0.2/tasks.md`)** - 모듈별 WBS 및 의존성, 완료 기준 수립
+3. **4단계: v0.0.2 구현 및 검증** - Task 순서에 따른 구현 및 테스트
