@@ -1,8 +1,8 @@
 # 시스템 명세서: Nado Cortex (나도 코텍스)
 
 - **상태**: 작성 및 검토 중 (Living Document)
-- **현재 진행 마일스톤**: [v0.0.4 (시그널 체인 분리, 파라미터 직접 입력, Nexfoot 패널 토글)](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.4/plan.md)
-- **최신 버전**: v0.0.4
+- **현재 진행 마일스톤**: [v0.0.5 (Live vs Advanced 모드, Nexfoot 7시~4시 노브 및 패널 접기)](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.5/plan.md)
+- **최신 버전**: v0.0.5
 - **작성일**: 2026-11-16
 
 ---
@@ -15,6 +15,7 @@
 | **v0.0.2** | 2026-11-16 | • **동적 MIDI Learn 엔진** (상대/절대/푸시 모드 자동 감지 및 바인딩)<br>• **매핑 프로필 관리** (LocalStorage 다중 저장, JSON Export/Import)<br>• **3단 레이아웃 구축** (Cortex 모니터 ➔ Nexfoot 패널 ➔ 접이식 로그)<br>• **Nano Cortex 컨트롤** (프리셋 0~63 전환, 30종 이상 공식 전체 이펙트/앰프 라이브러리 교체)<br>• **슬롯 상세 파라미터 인스펙터** 및 **Nexfoot 4노브 다이내믹 페이징** 연동 완료 | [plan.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.2/plan.md), [tasks.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.2/tasks.md), [review.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.2/review.md) |
 | **v0.0.3** | 2026-11-16 | • **1. 스마트 익스프레션 페달(EXP In) 연동** (CC 1 수신 ➔ Wah, Pitch Wham, Volume, 딜레이 믹스 실시간 제어 및 가상 EXP 바)<br>• **2. 프리셋별 곡명(Setlist) 및 공연 모드** (0~63 프리셋에 곡명 지정, 공연 순서대로 넘기는 세트리스트 내비게이션)<br>• **3. 탭 템포(Tap Tempo) & 튜너(Tuner) 화면 연동** (BPM 연산 및 Nano Cortex 튜너 모드 On/Off 및 시각 튜너 디스플레이)<br>• **4. 실기기 역방향 동기화(Notify c305 정밀 디코더)** (본체 물리 노브/버튼 조작 시 화면 및 가상 게이지 실시간 미러링)<br>• **5. 모바일 최적화 상단 고정 헤더 접기/펼치기** (모바일 화면 공간 확보를 위한 상단 컴팩트 토글)<br>• **6. UI 타이틀 간소화** ("Nano Cortex", "Livtra Nexfoot"으로 심플 표기) | [plan.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.3/plan.md), [tasks.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.3/tasks.md), [review.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.3/review.md) |
 | **v0.0.4** | 2026-11-16 | • **1. 시그널 체인 슬롯 분리 라인 처리** (Neural Capture 및 Cab/IR을 FX 슬롯과 별개의 독립 라인/섹션으로 분리 렌더링)<br>• **2. 파라미터 직접 입력 모드 (Direct Numeric Input)** (슬라이더 조작뿐 아니라 수치 라벨 클릭 시 키보드 직접 타이핑 및 Min/Max 검증)<br>• **3. Livtra Nexfoot 독립 모드 & 패널 On/Off 토글** (Nexfoot 미사용 시 가상 패널을 On/Off 숨겨 Nano Cortex 풀화면 에디터로 활용) | [plan.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.4/plan.md), [tasks.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.4/tasks.md), [review.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.4/review.md) |
+| **v0.0.5** | 2026-11-16 | • **1. Live 모드 vs Advanced 모드 전환** (화면 최상단 원터치 스위치: 연주 전용 간편 Live 모드 vs 전체 에디터 Advanced 모드)<br>• **2. Nexfoot 노브 가동 범위 개선** (실제 아날로그 이펙터와 동일한 7시~4시 방향 270도 아크 게이지 및 0%~100% 시각화)<br>• **3. Core Amp/Cab 및 Nexfoot 패널 아코디언 접기/펼치기** (이벤트 로그처럼 필요할 때만 펼쳐보는 접이식 패널 인터랙션)<br>• **4. UI/UX 리파인먼트** (Live/Advanced 라벨 간소화, Nano Cortex 타이틀 고정, Tuner 버튼 위치 고정, FX 슬롯 1~5번 개별 고유 컬러 및 Bypass 시 채도 다운) | [plan.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.5/plan.md), [tasks.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.5/tasks.md), [review.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.5/review.md) |
 
 ---
 
@@ -49,17 +50,17 @@
 │              웹 브라우저 (호스트 플랫폼)                 │
 │                                                        │
 │  ┌────────────────────┐      ┌──────────────────────┐  │
-│  │   Web MIDI 모듈     │      │   UI 대시보드 v0.0.4 │  │
-│  │  - 장치 감지/수신  │      │  - [1] 모바일 접이 헤더│  │
-│  │  - CC/상대틱 정규화│      │  - [2] Nano Cortex   │  │
-│  │  - EXP In (CC 1)   │      │        • 2단 시그널체인 │  │
-│  └─────────┬──────────┘      │          (Amp/Cab vs │  │
-│            │                 │           FX 페달라인) │  │
-│            ▼                 │        • 슬라이더+직접입력│  │
-│  ┌────────────────────────┐  │        • 세트리스트/튜너│  │
-│  │  핵심 엔진 (Core)      │  │  - [3] Livtra Nexfoot│  │
-│  │  - MidiLearnEngine     │  │        (On/Off 토글가능)│  │
-│  │  - DynamicPagingRouter │  │  - [4] 접이식 로그   │  │
+│  │   Web MIDI 모듈     │      │   UI 대시보드 v0.0.5 │  │
+│  │  - 장치 감지/수신  │      │  - [1] Live/Adv 모드 │  │
+│  │  - CC/상대틱 정규화│      │  - [2] 접이식 헤더   │  │
+│  │  - EXP In (CC 1)   │      │  - [3] Nano Cortex   │  │
+│  └─────────┬──────────┘      │        • 접이식 Core │  │
+│            │                 │        • FX 페달라인 │  │
+│            ▼                 │        • 슬라이더+입력│  │
+│  ┌────────────────────────┐  │  - [4] Livtra Nexfoot│  │
+│  │  핵심 엔진 (Core)      │  │        • 7시~4시 노브│  │
+│  │  - MidiLearnEngine     │  │        • 아코디언 접기│  │
+│  │  - DynamicPagingRouter │  │  - [5] 접이식 로그   │  │
 │  │  - SetlistManager      │  └──────────┬───────────┘  │
 │  │  - TunerTempoEngine    │             │              │
 │  │  - NotifyDecoder       │<────────────┘              │
@@ -172,16 +173,53 @@
   - Nexfoot 패널이 OFF인 경우, 화면 공간 전체를 Nano Cortex 2단 시그널 체인(Core Amp/Cab + FX) 및 파라미터 인스펙터가 넓게 차지하여 모바일/태블릿/PC에서 쾌적한 에디터 화면 제공.
   - Nexfoot 패널이 OFF 상태라도 실제 Nexfoot 하드웨어가 연결되면 백그라운드 MIDI 메시지는 정상 수신되어 Nano Cortex를 제어 가능.
 
+### 4.10 [신규 v0.0.5] Live 모드 vs Advanced 모드 전환 (Dual View Modes)
+- **FR-27 (라이브 공연 모드 vs 정밀 에디터 모드)**:
+  - 화면 최상단(Header)에 원클릭 세그먼트 스위치 `[LIVE 모드] | [ADVANCED 모드]` 배치.
+  - **Live 모드**:
+    - 무대 공연 및 합주 연주 시 필요한 핵심 기능(세트리스트 곡 순서, 프리셋 0~63, 탭 템포/BPM, 시각 튜너, FX 슬롯 온오프 바이패스, 슬롯 파라미터 제어)에 집중.
+    - Core Amp/Cab 랙은 기본 접힘(collapsed by default) 상태로 숨겨두고 접기/펼치기 아코디언 제공.
+    - Livtra Nexfoot 패널은 숨김(OFF) 상태로 전환하여 연주 화면을 극대화.
+  - **Advanced 모드**:
+    - 기기의 모든 기능과 세부 설정을 제어할 수 있는 풀 에디터 화면.
+    - 접기/펼치기가 지원되는 모든 컴포넌트(Core Amp/Cab, Nexfoot 가상 패널, 이벤트 로그)가 기본 펼침(expanded by default) 상태로 노출.
+  - 모드 설정은 LocalStorage(`nado_view_mode`)에 저장되어 새로고침 후에도 유지.
+
+### 4.11 [신규 v0.0.5] Nexfoot 노브 가동 범위 및 이펙터 게이지 개선
+- **FR-28 (7시 방향~4시 방향 270도 노브 회전 및 0%~100% 시각화)**:
+  - 실제 아날로그 스톰프박스/앰프의 노브 가동 범위인 7시(MIN/0%) ~ 4시/5시(MAX/100%) 방향(총 270도)으로 회전 아크 및 눈금 재정렬.
+  - SVG 원호(Arc) 시작점을 7시 방향으로 맞추어, 실제 이펙터 노브를 돌리는 듯한 현실감과 시각적 직관성 부여.
+  - 7시(0)와 4시/5시(100) 마커를 표시하여 노브 현재 위치를 즉시 인지 가능.
+
+### 4.12 [신규 v0.0.5] 컴포넌트 아코디언 접기/펼치기 인터랙션
+- **FR-29 (Core Amp/Cab 및 Nexfoot 패널 접기/펼치기)**:
+  - 이벤트 로그 콘솔처럼, Core Amp/Cab 라인 및 Nexfoot 가상 패널의 헤더 우측에 `ChevronUp`/`ChevronDown` 접기/펼치기 버튼 제공.
+  - 원클릭으로 패널 본문을 접거나 펼칠 수 있으며, 접힌 상태에서도 슬롯 이름 및 On/Off 상태를 요약 바 형태로 확인 가능.
+
+### 4.13 [신규 v0.0.5] 세부 UI/UX 정밀 리파인먼트
+- **FR-30 (모드 라벨, 타이틀 고정, Tuner 버튼 위치 고정 및 FX 슬롯 개별 컬러)**:
+  - **모드 라벨 간소화**: 최상단 스위처 버튼 라벨을 `[Live | Advanced]`로 간결화 ("모드" 텍스트 제거).
+  - **패널 타이틀 일관성**: Live 모드 시에도 뷰 타이틀을 `Nano Cortex`로 변함없이 유지.
+  - **Tuner 버튼 위치 고정**: 토글 시 텍스트 변경으로 인한 줄바꿈(wrap) 현상을 방지하기 위해 라벨을 `TUNER`로 고정하고 고정 너비(`w-[90px] shrink-0`)를 주어 클릭 시 제자리에서 안정적으로 On/Off 토글 지원.
+  - **FX 슬롯 1~5번 개별 컬러 매핑**:
+    - `pre_fx_1` (Gate): 스틸 실버 / 슬레이트
+    - `pre_fx_2` (Transposer): 모던 민트 / 틸
+    - `post_fx_1` (FX1 Drive): 빈티지 웜 앰버
+    - `post_fx_2` (FX2 Mod): 라벤더 바이올렛
+    - `post_fx_3` (FX3 Delay/Rev): 딥 스카이 블루
+    - **Bypass (Off) 상태**: `grayscale opacity-45` 및 무채색(`text-zinc-500`)으로 채도를 다운시켜 전원 꺼짐을 직관적으로 식별 가능.
+
 ---
 
 ## 5. 비기능 요구사항 (NFR)
 - **NFR-01**: 스마트폰 세로/가로 모드 완벽 반응형 UI 지원 (Nexfoot 패널 OFF 시 에디터 높이 자동 확장).
 - **NFR-02**: MIDI 입력 ➔ BLE 패킷 송신 레이턴시 15ms 이하 유지.
 - **NFR-03**: 파라미터 직접 입력 시 30ms Rate Limiter와 연동되어 급격한 패킷 플러딩 방지.
+- **NFR-04**: 모드 전환 시 리렌더링 깜빡임 없이 부드러운 애니메이션 트랜지션 제공.
 
 ---
 
 ## 6. 다음 단계
-1. **`docs/v0.0.4/plan.md` 작성**: v0.0.4 상세 아키텍처 및 2단 시그널 체인 / 직접 입력 / 패널 토글 설계
-2. **`docs/v0.0.4/tasks.md` 작성**: 작업 분할 WBS 수립
-3. **v0.0.4 모듈 순차 구현 및 검증**
+1. **`docs/v0.0.5/plan.md` 작성**: v0.0.5 상세 아키텍처 및 Live/Advanced 모드, 7시~4시 노브, 접이식 패널 설계
+2. **`docs/v0.0.5/tasks.md` 작성**: 작업 분할 WBS 수립
+3. **v0.0.5 모듈 순차 구현 및 검증**

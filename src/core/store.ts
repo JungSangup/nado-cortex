@@ -87,12 +87,20 @@ interface AppState {
   startMidiLearn: (target: MidiLearnTarget) => void;
   cancelMidiLearn: () => void;
 
-  // UI 상태 (모바일 헤더 접기 및 로그 펼치기, Nexfoot 패널 토글)
+  // 뷰 모드 및 UI 접기/펼치기 상태
+  viewMode: 'live' | 'advanced';
+  setViewMode: (mode: 'live' | 'advanced') => void;
   headerExpanded: boolean;
   toggleHeaderExpanded: () => void;
+  coreAmpCabExpanded: boolean;
+  toggleCoreAmpCabExpanded: () => void;
+  setCoreAmpCabExpanded: (expanded: boolean) => void;
   showNexfootPanel: boolean;
   setShowNexfootPanel: (show: boolean) => void;
   toggleNexfootPanel: () => void;
+  nexfootExpanded: boolean;
+  toggleNexfootExpanded: () => void;
+  setNexfootExpanded: (expanded: boolean) => void;
   logExpanded: boolean;
   setLogExpanded: (expanded: boolean) => void;
   toggleLogExpanded: () => void;
@@ -330,9 +338,35 @@ export const useAppStore = create<AppState>((set, get) => {
     startMidiLearn: (target) => midiLearnEngine.startLearn(target),
     cancelMidiLearn: () => midiLearnEngine.cancelLearn(),
 
-    // UI
+    // UI View Modes & Accordions
+    viewMode: typeof window !== 'undefined' && localStorage.getItem('nado_view_mode') === 'live' ? 'live' : 'advanced',
+    setViewMode: (mode) => {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('nado_view_mode', mode);
+      }
+      if (mode === 'live') {
+        set({
+          viewMode: 'live',
+          coreAmpCabExpanded: false,
+          showNexfootPanel: false,
+          logExpanded: false,
+        });
+      } else {
+        set({
+          viewMode: 'advanced',
+          coreAmpCabExpanded: true,
+          showNexfootPanel: true,
+          nexfootExpanded: true,
+        });
+      }
+    },
+
     headerExpanded: false, // 기본 접힘(모바일 최적화)
     toggleHeaderExpanded: () => set((state) => ({ headerExpanded: !state.headerExpanded })),
+
+    coreAmpCabExpanded: typeof window !== 'undefined' && localStorage.getItem('nado_view_mode') === 'live' ? false : true,
+    toggleCoreAmpCabExpanded: () => set((state) => ({ coreAmpCabExpanded: !state.coreAmpCabExpanded })),
+    setCoreAmpCabExpanded: (expanded) => set({ coreAmpCabExpanded: expanded }),
 
     showNexfootPanel: typeof window !== 'undefined' ? localStorage.getItem('nado_show_nexfoot_panel') !== 'false' : true,
     setShowNexfootPanel: (show) => {
@@ -348,6 +382,10 @@ export const useAppStore = create<AppState>((set, get) => {
       }
       set({ showNexfootPanel: next });
     },
+
+    nexfootExpanded: true,
+    toggleNexfootExpanded: () => set((state) => ({ nexfootExpanded: !state.nexfootExpanded })),
+    setNexfootExpanded: (expanded) => set({ nexfootExpanded: expanded }),
 
     logExpanded: false,
     setLogExpanded: (expanded) => set({ logExpanded: expanded }),

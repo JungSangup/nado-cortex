@@ -20,6 +20,7 @@ export const SlotParameterRack: React.FC<SlotParameterRackProps> = ({ onParamCha
     startMidiLearn,
     cancelMidiLearn,
     updateSlotParamValue,
+    viewMode,
   } = useAppStore();
 
   const currentSlot = cortexSlots.find((s) => s.slotId === selectedSlotId);
@@ -81,16 +82,21 @@ export const SlotParameterRack: React.FC<SlotParameterRackProps> = ({ onParamCha
         <div className="flex items-center gap-2">
           <Sliders className="w-4 h-4 text-cortex-cyan" />
           <h3 className="text-sm font-bold text-white tracking-wide">
-            상세 파라미터 랙: <span className="text-cortex-cyan">{model.name}</span>
+            {viewMode === 'live' ? '파라미터 조정:' : '상세 파라미터 랙:'}{' '}
+            <span className="text-cortex-cyan">{model.name}</span>
           </h3>
-          <span className="text-[11px] font-mono text-cortex-muted bg-cortex-dark px-2 py-0.5 rounded border border-cortex-border">
-            총 {allParams.length}개 파라미터
-          </span>
+          {viewMode !== 'live' && (
+            <span className="text-[11px] font-mono text-cortex-muted bg-cortex-dark px-2 py-0.5 rounded border border-cortex-border">
+              총 {allParams.length}개 파라미터
+            </span>
+          )}
         </div>
 
         {/* Paging Controls */}
         <div className="flex items-center gap-2">
-          <span className="text-xs text-cortex-muted font-medium hidden sm:inline">Nexfoot 노브 페이징:</span>
+          {viewMode !== 'live' && (
+            <span className="text-xs text-cortex-muted font-medium hidden sm:inline">Nexfoot 노브 페이징:</span>
+          )}
           <div className="flex items-center gap-1.5 bg-cortex-dark px-2 py-1 rounded-lg border border-cortex-border">
             <button
               onClick={prevParamPage}
@@ -156,30 +162,32 @@ export const SlotParameterRack: React.FC<SlotParameterRackProps> = ({ onParamCha
                     </span>
                   )}
 
-                  {/* MIDI Learn Button */}
-                  <button
-                    onClick={() => {
-                      if (isLearningThis) {
-                        cancelMidiLearn();
-                      } else {
-                        startMidiLearn({
-                          type: 'slot_param',
-                          slotId: selectedSlotId,
-                          paramIndex: param.paramIndex,
-                          swId: isAssignedToEncoder ? (`sw${assignedSwIndex + 1}` as any) : 'sw1',
-                        });
-                      }
-                    }}
-                    title={isLearningThis ? '학습 취소' : 'MIDI Learn (노브 돌려 감지)'}
-                    className={`text-[10px] font-mono px-1.5 py-0.5 rounded border transition-all flex items-center gap-1 ${
-                      isLearningThis
-                        ? 'bg-amber-500 text-black font-bold border-amber-400'
-                        : 'bg-cortex-panel text-cortex-muted border-cortex-border hover:text-white hover:border-cortex-border/90'
-                    }`}
-                  >
-                    <Target className="w-2.5 h-2.5" />
-                    <span>{isLearningThis ? 'Learn...' : 'Learn'}</span>
-                  </button>
+                  {/* MIDI Learn Button (Advanced 모드에서만 노출) */}
+                  {viewMode !== 'live' && (
+                    <button
+                      onClick={() => {
+                        if (isLearningThis) {
+                          cancelMidiLearn();
+                        } else {
+                          startMidiLearn({
+                            type: 'slot_param',
+                            slotId: selectedSlotId,
+                            paramIndex: param.paramIndex,
+                            swId: isAssignedToEncoder ? (`sw${assignedSwIndex + 1}` as any) : 'sw1',
+                          });
+                        }
+                      }}
+                      title={isLearningThis ? '학습 취소' : 'MIDI Learn (노브 돌려 감지)'}
+                      className={`text-[10px] font-mono px-1.5 py-0.5 rounded border transition-all flex items-center gap-1 ${
+                        isLearningThis
+                          ? 'bg-amber-500 text-black font-bold border-amber-400'
+                          : 'bg-cortex-panel text-cortex-muted border-cortex-border hover:text-white hover:border-cortex-border/90'
+                      }`}
+                    >
+                      <Target className="w-2.5 h-2.5" />
+                      <span>{isLearningThis ? 'Learn...' : 'Learn'}</span>
+                    </button>
+                  )}
                 </div>
               </div>
 

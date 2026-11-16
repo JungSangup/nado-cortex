@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { useAppStore } from '../core/store';
-import { Bluetooth, Radio, Cpu, Sparkles, Download, Upload, Plus, Trash2, ChevronDown, ChevronUp, Menu, Eye, EyeOff } from 'lucide-react';
+import { Bluetooth, Radio, Cpu, Sparkles, Download, Upload, Plus, Trash2, ChevronDown, ChevronUp, Menu, Eye, EyeOff, Zap, SlidersHorizontal } from 'lucide-react';
 import { profileManager } from '../core/ProfileManager';
 
 interface HeaderProps {
@@ -34,6 +34,8 @@ export const Header: React.FC<HeaderProps> = ({
     toggleHeaderExpanded,
     showNexfootPanel,
     toggleNexfootPanel,
+    viewMode,
+    setViewMode,
   } = useAppStore();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -124,27 +126,57 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center gap-1.5">
                 <h1 className="text-base sm:text-lg font-black tracking-wider text-white">NADO CORTEX</h1>
                 <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-cortex-cyan/20 text-cortex-cyan border border-cortex-cyan/30 font-mono">
-                  v0.0.4
+                  v0.0.5
                 </span>
               </div>
             </div>
           </div>
 
+          {/* Mode Switcher Segment Control: [ Live | Advanced ] */}
+          <div className="flex items-center bg-cortex-panel/90 p-0.5 rounded-xl border border-cortex-border shadow-inner">
+            <button
+              onClick={() => setViewMode('live')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                viewMode === 'live'
+                  ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/30'
+                  : 'text-cortex-muted hover:text-white'
+              }`}
+              title="Live 모드: 연주에 필요한 세트리스트, 템포, FX 위주 간편 뷰"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>Live</span>
+            </button>
+            <button
+              onClick={() => setViewMode('advanced')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                viewMode === 'advanced'
+                  ? 'bg-cortex-cyan text-black shadow-md shadow-cortex-cyan/30'
+                  : 'text-cortex-muted hover:text-white'
+              }`}
+              title="Advanced 모드: 모든 앰프/캐비닛/FX/Nexfoot 에디터 전체 노출"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>Advanced</span>
+            </button>
+          </div>
+
           {/* Quick Connection Bullets & Toggle Buttons */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Nexfoot Panel Show/Hide Toggle Button */}
-            <button
-              onClick={toggleNexfootPanel}
-              title={showNexfootPanel ? 'Nexfoot 가상 패널 숨기기 (단독 Cortex 에디터 모드)' : 'Nexfoot 가상 패널 표시하기'}
-              className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-all ${
-                showNexfootPanel
-                  ? 'bg-purple-950/40 border-purple-500/60 text-purple-300 font-bold hover:bg-purple-900/50'
-                  : 'bg-cortex-panel border-cortex-border text-slate-400 hover:text-white hover:border-cortex-border/90'
-              }`}
-            >
-              {showNexfootPanel ? <Eye className="w-3.5 h-3.5 text-purple-400" /> : <EyeOff className="w-3.5 h-3.5" />}
-              <span className="text-[11px] hidden sm:inline">Nexfoot: {showNexfootPanel ? 'ON' : 'OFF'}</span>
-            </button>
+            {/* Nexfoot Panel Show/Hide Toggle Button (Advanced 모드에서만 표시) */}
+            {viewMode !== 'live' && (
+              <button
+                onClick={toggleNexfootPanel}
+                title={showNexfootPanel ? 'Nexfoot 가상 패널 숨기기 (단독 Cortex 에디터 모드)' : 'Nexfoot 가상 패널 표시하기'}
+                className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-all ${
+                  showNexfootPanel
+                    ? 'bg-purple-950/40 border-purple-500/60 text-purple-300 font-bold hover:bg-purple-900/50'
+                    : 'bg-cortex-panel border-cortex-border text-slate-400 hover:text-white hover:border-cortex-border/90'
+                }`}
+              >
+                {showNexfootPanel ? <Eye className="w-3.5 h-3.5 text-purple-400" /> : <EyeOff className="w-3.5 h-3.5" />}
+                <span className="text-[11px] hidden sm:inline">Nexfoot: {showNexfootPanel ? 'ON' : 'OFF'}</span>
+              </button>
+            )}
 
             {/* Quick Status Badges */}
             <div className="flex items-center gap-2 text-[11px] font-mono bg-cortex-panel/80 px-2.5 py-1 rounded-lg border border-cortex-border">
@@ -175,25 +207,27 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </div>
 
-            {/* Mobile / Compact Expand Toggle Button */}
-            <button
-              onClick={toggleHeaderExpanded}
-              className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-all ${
-                headerExpanded
-                  ? 'bg-cortex-cyan/20 border-cortex-cyan text-cortex-cyan font-bold'
-                  : 'bg-cortex-panel border-cortex-border text-cortex-muted hover:text-white'
-              }`}
-              title="설정 및 연결 컨트롤 접기/펼치기"
-            >
-              <Menu className="w-3.5 h-3.5" />
-              <span className="text-[11px] hidden xs:inline">{headerExpanded ? '설정 접기' : '설정/연결'}</span>
-              {headerExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            </button>
+            {/* Mobile / Compact Expand Toggle Button (Advanced 모드에서만 노출) */}
+            {viewMode !== 'live' && (
+              <button
+                onClick={toggleHeaderExpanded}
+                className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-all ${
+                  headerExpanded
+                    ? 'bg-cortex-cyan/20 border-cortex-cyan text-cortex-cyan font-bold'
+                    : 'bg-cortex-panel border-cortex-border text-cortex-muted hover:text-white'
+                }`}
+                title="설정 및 연결 컨트롤 접기/펼치기"
+              >
+                <Menu className="w-3.5 h-3.5" />
+                <span className="text-[11px] hidden xs:inline">{headerExpanded ? '설정 접기' : '설정/연결'}</span>
+                {headerExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </button>
+            )}
           </div>
         </div>
 
         {/* Collapsible Controls Drawer */}
-        {headerExpanded && (
+        {viewMode !== 'live' && headerExpanded && (
           <div className="pt-3 mt-2.5 border-t border-cortex-border/70 flex flex-wrap items-center justify-between gap-3 animate-in fade-in duration-150">
             {/* Profile Manager Bar */}
             <div className="flex flex-wrap items-center gap-1.5 bg-cortex-panel px-2.5 py-1 rounded-xl border border-cortex-border">
