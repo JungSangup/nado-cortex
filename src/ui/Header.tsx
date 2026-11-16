@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { useAppStore } from '../core/store';
-import { Bluetooth, Radio, Cpu, Sparkles, Download, Upload, Plus, Trash2, ChevronDown, ChevronUp, Menu } from 'lucide-react';
+import { Bluetooth, Radio, Cpu, Sparkles, Download, Upload, Plus, Trash2, ChevronDown, ChevronUp, Menu, Eye, EyeOff } from 'lucide-react';
 import { profileManager } from '../core/ProfileManager';
 
 interface HeaderProps {
@@ -32,6 +32,8 @@ export const Header: React.FC<HeaderProps> = ({
     addLog,
     headerExpanded,
     toggleHeaderExpanded,
+    showNexfootPanel,
+    toggleNexfootPanel,
   } = useAppStore();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -122,14 +124,28 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center gap-1.5">
                 <h1 className="text-base sm:text-lg font-black tracking-wider text-white">NADO CORTEX</h1>
                 <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-cortex-cyan/20 text-cortex-cyan border border-cortex-cyan/30 font-mono">
-                  v0.0.3
+                  v0.0.4
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Quick Connection Bullets & Toggle Button */}
+          {/* Quick Connection Bullets & Toggle Buttons */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Nexfoot Panel Show/Hide Toggle Button */}
+            <button
+              onClick={toggleNexfootPanel}
+              title={showNexfootPanel ? 'Nexfoot 가상 패널 숨기기 (단독 Cortex 에디터 모드)' : 'Nexfoot 가상 패널 표시하기'}
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-all ${
+                showNexfootPanel
+                  ? 'bg-purple-950/40 border-purple-500/60 text-purple-300 font-bold hover:bg-purple-900/50'
+                  : 'bg-cortex-panel border-cortex-border text-slate-400 hover:text-white hover:border-cortex-border/90'
+              }`}
+            >
+              {showNexfootPanel ? <Eye className="w-3.5 h-3.5 text-purple-400" /> : <EyeOff className="w-3.5 h-3.5" />}
+              <span className="text-[11px] hidden sm:inline">Nexfoot: {showNexfootPanel ? 'ON' : 'OFF'}</span>
+            </button>
+
             {/* Quick Status Badges */}
             <div className="flex items-center gap-2 text-[11px] font-mono bg-cortex-panel/80 px-2.5 py-1 rounded-lg border border-cortex-border">
               <span className="flex items-center gap-1">

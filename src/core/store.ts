@@ -87,9 +87,12 @@ interface AppState {
   startMidiLearn: (target: MidiLearnTarget) => void;
   cancelMidiLearn: () => void;
 
-  // UI 상태 (모바일 헤더 접기 및 로그 펼치기)
+  // UI 상태 (모바일 헤더 접기 및 로그 펼치기, Nexfoot 패널 토글)
   headerExpanded: boolean;
   toggleHeaderExpanded: () => void;
+  showNexfootPanel: boolean;
+  setShowNexfootPanel: (show: boolean) => void;
+  toggleNexfootPanel: () => void;
   logExpanded: boolean;
   setLogExpanded: (expanded: boolean) => void;
   toggleLogExpanded: () => void;
@@ -330,6 +333,21 @@ export const useAppStore = create<AppState>((set, get) => {
     // UI
     headerExpanded: false, // 기본 접힘(모바일 최적화)
     toggleHeaderExpanded: () => set((state) => ({ headerExpanded: !state.headerExpanded })),
+
+    showNexfootPanel: typeof window !== 'undefined' ? localStorage.getItem('nado_show_nexfoot_panel') !== 'false' : true,
+    setShowNexfootPanel: (show) => {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('nado_show_nexfoot_panel', String(show));
+      }
+      set({ showNexfootPanel: show });
+    },
+    toggleNexfootPanel: () => {
+      const next = !get().showNexfootPanel;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('nado_show_nexfoot_panel', String(next));
+      }
+      set({ showNexfootPanel: next });
+    },
 
     logExpanded: false,
     setLogExpanded: (expanded) => set({ logExpanded: expanded }),

@@ -14,7 +14,7 @@ import { NexfootParser } from './midi/NexfootParser';
 import { midiLearnEngine } from './core/MidiLearnEngine';
 
 export default function App() {
-  const { isMockMode, setBleStatus, setMidiStatus, addLog } = useAppStore();
+  const { isMockMode, setBleStatus, setMidiStatus, addLog, showNexfootPanel } = useAppStore();
 
   const bridgeRouterRef = useRef<BridgeRouter | null>(null);
   const bleManagerRef = useRef<WebBluetoothManager | null>(null);
@@ -253,19 +253,21 @@ export default function App() {
           onToggleTuner={handleToggleTuner}
         />
 
-        {/* 2. 중단: Livtra Nexfoot 컨트롤러 (4개 엔코더 + 스마트 EXP 페달) */}
-        <NexfootVirtualPanel
-          onSimulateRotate={handleSimulateRotate}
-          onSimulatePush={handleSimulatePush}
-          onSimulateExp={handleSimulateExp}
-        />
+        {/* 2. 중단: Livtra Nexfoot 컨트롤러 (토글 가능 - 4개 엔코더 + 스마트 EXP 페달) */}
+        {showNexfootPanel && (
+          <NexfootVirtualPanel
+            onSimulateRotate={handleSimulateRotate}
+            onSimulatePush={handleSimulatePush}
+            onSimulateExp={handleSimulateExp}
+          />
+        )}
 
         {/* 3. 최하단: 실시간 패킷 및 미디 이벤트 로그 콘솔 (접기/펼치기 가능) */}
         <EventLogConsole />
       </main>
 
       <footer className="border-t border-cortex-border py-3 px-6 text-center text-xs text-cortex-muted">
-        Nado Cortex v0.0.3 • Spec-Driven Development • Built for Neural DSP Nano Cortex & Livtra Nexfoot
+        Nado Cortex v0.0.4 • Spec-Driven Development • Built for Neural DSP Nano Cortex & Livtra Nexfoot
       </footer>
     </div>
   );

@@ -197,92 +197,193 @@ export const CortexMonitorPanel: React.FC<CortexMonitorPanelProps> = ({
         </div>
       )}
 
-      {/* Signal Chain Blocks */}
-      <div>
-        <div className="text-xs font-semibold text-cortex-muted mb-2.5 uppercase tracking-wider flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <Layers className="w-3.5 h-3.5 text-cortex-cyan" />
-            <span>시그널 체인 슬롯</span>
+      {/* Signal Chain Blocks - 2-Row Split (Core Amp/Cab vs FX Pedals) */}
+      <div className="space-y-4">
+        {/* Row 1: Core Neural Capture & Cab/IR Line */}
+        <div className="bg-gradient-to-r from-amber-950/20 via-cortex-panel/40 to-amber-950/20 p-3 sm:p-3.5 rounded-xl border border-amber-500/30 shadow-sm">
+          <div className="text-xs font-semibold text-amber-400 mb-2.5 uppercase tracking-wider flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Volume2 className="w-3.5 h-3.5 text-amber-400" />
+              <span>Core: Neural Capture & Cab / IR 라인</span>
+            </div>
+            <span className="text-[10px] font-mono text-amber-400/80 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-500/30">
+              앰프 헤드 캡처 & 캐비닛 IR (메인 톤 엔진)
+            </span>
           </div>
-          <span className="text-[11px] font-mono text-cortex-cyan lowercase">
-            * 슬롯 클릭 시 하단 파라미터 랙에 즉시 반영
-          </span>
-        </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5">
-          {cortexSlots.map((slot) => {
-            const isActive = !slot.isBypassed;
-            const isSelected = slot.slotId === selectedSlotId;
-            const availableModels = getModelsForSlot(slot.slotId);
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {cortexSlots
+              .filter((slot) => slot.slotId === 'amp' || slot.slotId === 'cab')
+              .map((slot) => {
+                const isActive = !slot.isBypassed;
+                const isSelected = slot.slotId === selectedSlotId;
+                const availableModels = getModelsForSlot(slot.slotId);
 
-            return (
-              <div
-                key={slot.slotId}
-                onClick={() => setSelectedSlotId(slot.slotId)}
-                className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between min-h-[105px] ${
-                  isSelected
-                    ? 'ring-2 ring-cortex-cyan border-cortex-cyan bg-cortex-panel shadow-lg shadow-cortex-cyan/20'
-                    : isActive
-                    ? 'bg-cortex-panel/70 border-cortex-border/80 hover:border-cortex-cyan/40'
-                    : 'bg-cortex-panel/30 border-cortex-border/40 opacity-60'
-                }`}
-              >
-                {/* Slot Top: Label & Bypass Power Button */}
-                <div className="flex items-center justify-between w-full mb-1">
-                  <span className="text-[10px] font-mono text-cortex-muted font-bold truncate max-w-[70px]">
-                    {slot.name}
-                  </span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onToggleSlot) onToggleSlot(slot.slotId);
-                      else toggleSlotBypass(slot.slotId);
-                    }}
-                    title={isActive ? '슬롯 끄기 (Bypass)' : '슬롯 켜기 (Active)'}
-                    className={`p-1 rounded-md transition-all ${
-                      isActive
-                        ? 'text-cortex-cyan bg-cortex-cyan/10 hover:bg-cortex-cyan/20'
-                        : 'text-slate-500 bg-slate-800/40 hover:bg-slate-800'
+                return (
+                  <div
+                    key={slot.slotId}
+                    onClick={() => setSelectedSlotId(slot.slotId)}
+                    className={`p-3 sm:p-3.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between min-h-[110px] ${
+                      isSelected
+                        ? 'ring-2 ring-amber-400 border-amber-400 bg-cortex-panel shadow-lg shadow-amber-400/20'
+                        : isActive
+                        ? 'bg-cortex-panel/80 border-amber-500/40 hover:border-amber-400/60'
+                        : 'bg-cortex-panel/30 border-cortex-border/40 opacity-60'
                     }`}
                   >
-                    <Power className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                    {/* Top: Name & Power */}
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-mono text-amber-400 font-black uppercase px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-500/40">
+                          {slot.slotId === 'amp' ? 'AMP' : 'CAB'}
+                        </span>
+                        <span className="text-xs font-bold text-white truncate max-w-[150px]">
+                          {slot.name}
+                        </span>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onToggleSlot) onToggleSlot(slot.slotId);
+                          else toggleSlotBypass(slot.slotId);
+                        }}
+                        title={isActive ? '슬롯 끄기 (Bypass)' : '슬롯 켜기 (Active)'}
+                        className={`p-1 rounded-md transition-all ${
+                          isActive
+                            ? 'text-amber-400 bg-amber-400/10 hover:bg-amber-400/20'
+                            : 'text-slate-500 bg-slate-800/40 hover:bg-slate-800'
+                        }`}
+                      >
+                        <Power className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
 
-                {/* Model Name */}
-                <div className="font-bold text-xs text-white truncate my-1">
-                  {slot.modelName}
-                </div>
+                    {/* Model Name */}
+                    <div className="font-bold text-sm text-white truncate my-1">
+                      {slot.modelName}
+                    </div>
 
-                {/* Model Selector Dropdown */}
-                <div className="mt-1" onClick={(e) => e.stopPropagation()}>
-                  <select
-                    value={slot.modelId}
-                    onChange={(e) => handleModelChange(slot.slotId, e.target.value)}
-                    className="w-full bg-cortex-dark/90 text-[10px] text-cortex-muted hover:text-white px-1 py-0.5 rounded border border-cortex-border focus:outline-none focus:border-cortex-cyan truncate"
+                    {/* Model Selector Dropdown */}
+                    <div className="mt-1" onClick={(e) => e.stopPropagation()}>
+                      <select
+                        value={slot.modelId}
+                        onChange={(e) => handleModelChange(slot.slotId, e.target.value)}
+                        className="w-full bg-cortex-dark/90 text-xs text-white px-2 py-1 rounded-lg border border-cortex-border focus:outline-none focus:border-amber-400 truncate"
+                      >
+                        {availableModels.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Status Indicator */}
+                    <div className="text-[10px] font-mono mt-1.5 flex items-center justify-between">
+                      {isActive ? (
+                        <span className="text-emerald-400 font-bold">● ACTIVE</span>
+                      ) : (
+                        <span className="text-slate-500">○ BYPASS</span>
+                      )}
+                      {isSelected && (
+                        <span className="text-amber-400 text-[10px] font-bold">INSPECTOR FOCUS</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+
+        {/* Row 2: FX Pedals Line (Pre-FX & Post-FX Stompbox Chain) */}
+        <div className="bg-cortex-panel/30 p-3 sm:p-3.5 rounded-xl border border-cortex-border/70 shadow-sm">
+          <div className="text-xs font-semibold text-cortex-muted mb-2.5 uppercase tracking-wider flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-cortex-cyan" />
+              <span>FX 페달 라인 (Pre / Post Effects)</span>
+            </div>
+            <span className="text-[10px] font-mono text-cortex-cyan lowercase hidden sm:inline">
+              Pre-FX (Gate/Trans/FX1) ➔ Core Amp/Cab ➔ Post-FX (FX2/FX3)
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
+            {cortexSlots
+              .filter((slot) => slot.slotId !== 'amp' && slot.slotId !== 'cab')
+              .map((slot) => {
+                const isActive = !slot.isBypassed;
+                const isSelected = slot.slotId === selectedSlotId;
+                const availableModels = getModelsForSlot(slot.slotId);
+
+                return (
+                  <div
+                    key={slot.slotId}
+                    onClick={() => setSelectedSlotId(slot.slotId)}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between min-h-[105px] ${
+                      isSelected
+                        ? 'ring-2 ring-cortex-cyan border-cortex-cyan bg-cortex-panel shadow-lg shadow-cortex-cyan/20'
+                        : isActive
+                        ? 'bg-cortex-panel/70 border-cortex-border/80 hover:border-cortex-cyan/40'
+                        : 'bg-cortex-panel/30 border-cortex-border/40 opacity-60'
+                    }`}
                   >
-                    {availableModels.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    {/* Slot Top: Label & Bypass Power Button */}
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <span className="text-[10px] font-mono text-cortex-muted font-bold truncate max-w-[70px]">
+                        {slot.name}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onToggleSlot) onToggleSlot(slot.slotId);
+                          else toggleSlotBypass(slot.slotId);
+                        }}
+                        title={isActive ? '슬롯 끄기 (Bypass)' : '슬롯 켜기 (Active)'}
+                        className={`p-1 rounded-md transition-all ${
+                          isActive
+                            ? 'text-cortex-cyan bg-cortex-cyan/10 hover:bg-cortex-cyan/20'
+                            : 'text-slate-500 bg-slate-800/40 hover:bg-slate-800'
+                        }`}
+                      >
+                        <Power className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
 
-                {/* Status Indicator */}
-                <div className="text-[10px] font-mono mt-1 flex items-center justify-between">
-                  {isActive ? (
-                    <span className="text-emerald-400 font-bold">● ON</span>
-                  ) : (
-                    <span className="text-slate-500">○ BYPASS</span>
-                  )}
-                  {isSelected && (
-                    <span className="text-cortex-cyan text-[9px] font-bold">FOCUS</span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                    {/* Model Name */}
+                    <div className="font-bold text-xs text-white truncate my-1">
+                      {slot.modelName}
+                    </div>
+
+                    {/* Model Selector Dropdown */}
+                    <div className="mt-1" onClick={(e) => e.stopPropagation()}>
+                      <select
+                        value={slot.modelId}
+                        onChange={(e) => handleModelChange(slot.slotId, e.target.value)}
+                        className="w-full bg-cortex-dark/90 text-[10px] text-cortex-muted hover:text-white px-1 py-0.5 rounded border border-cortex-border focus:outline-none focus:border-cortex-cyan truncate"
+                      >
+                        {availableModels.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Status Indicator */}
+                    <div className="text-[10px] font-mono mt-1 flex items-center justify-between">
+                      {isActive ? (
+                        <span className="text-emerald-400 font-bold">● ON</span>
+                      ) : (
+                        <span className="text-slate-500">○ BYPASS</span>
+                      )}
+                      {isSelected && (
+                        <span className="text-cortex-cyan text-[9px] font-bold">FOCUS</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
         </div>
       </div>
 

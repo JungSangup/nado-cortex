@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAppStore } from '../core/store';
 import { CORTEX_SLOT_CONFIGS, DEVICE_CATALOG } from '../core/DeviceCatalog';
 import { dynamicPagingRouter } from '../core/DynamicPagingRouter';
-import { Sliders, ChevronLeft, ChevronRight, Target } from 'lucide-react';
+import { Sliders, ChevronLeft, ChevronRight, Target, Edit3, Check, X } from 'lucide-react';
 import { CortexSlotId } from '../types';
 
 interface SlotParameterRackProps {
@@ -36,11 +36,42 @@ export const SlotParameterRack: React.FC<SlotParameterRackProps> = ({ onParamCha
   const startIndex = paramPageIndex * 4;
   const currentAssignedIndices = [startIndex, startIndex + 1, startIndex + 2, startIndex + 3];
 
+  // 인라인 직접 입력 상태
+  const [editingParamIndex, setEditingParamIndex] = useState<number | null>(null);
+  const [tempInput, setTempInput] = useState<string>('');
+
   const handleSliderChange = (paramIndex: number, val: number) => {
     updateSlotParamValue(selectedSlotId, paramIndex, val);
     if (onParamChange) {
       onParamChange(selectedSlotId, paramIndex, val);
     }
+  };
+
+  const handleStartEdit = (paramIndex: number, currentVal: number) => {
+    setEditingParamIndex(paramIndex);
+    // 사용자가 입력하기 편하도록 0~100 스케일 (소수점 1자리까지 지원)
+    const valIn100 = Math.round(currentVal * 1000) / 10;
+    setTempInput(String(valIn100));
+  };
+
+  const handleCommitEdit = (paramIndex: number) => {
+    if (editingParamIndex === null) return;
+    const cleanStr = tempInput.trim().replace(/[%msdB\s]/g, '');
+    const num = parseFloat(cleanStr);
+    if (!isNaN(num)) {
+      // 0~1 사이의 소수점 입력(예: 0.75)이면 그대로, 1 초과(예: 75)면 100으로 나눔
+      let normalized = num;
+      if (num > 1) {
+        normalized = num / 100;
+      }
+      const clamped = Math.max(0, Math.min(1, Math.round(normalized * 1000) / 1000));
+      handleSliderChange(paramIndex, clamped);
+    }
+    setEditingParamIndex(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingParamIndex(null);
   };
 
   return (
@@ -152,11 +183,55 @@ export const SlotParameterRack: React.FC<SlotParameterRackProps> = ({ onParamCha
                 </div>
               </div>
 
-              {/* Value Display */}
-              <div className="flex items-baseline justify-between mb-2">
-                <span className="text-[11px] font-mono text-cortex-muted">실제값</span>
-                <span className="text-sm font-mono font-black text-cortex-cyan">{formatted}</span>
-              </div>
+              {/* Value Display & Direct Numeric Input */}
+              {editingParamIndex === param.paramIndex ? (
+                <div className="flex items-center justify-between mb-2 gap-1.5">
+                  <span className="text-[11px] font-mono text-cortex-cyan font-bold">값 입력:</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="text"
+                      value={tempInput}
+                      onChange={(e) => setTempInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleCommitEdit(param.paramIndex);
+                        if (e.key === 'Escape') handleCancelEdit();
+                      }}
+                      onBlur={() => handleCommitEdit(param.paramIndex)}
+                      autoFocus
+                      placeholder="0~100"
+                      className="w-16 px-1.5 py-0.5 text-xs font-mono font-bold text-white bg-slate-900 border border-cortex-cyan rounded focus:outline-none focus:ring-1 focus:ring-cortex-cyan"
+                    />
+                    <button
+                      onClick={() => handleCommitEdit(param.paramIndex)}
+                      title="확정 (Enter)"
+                      className="p-1 rounded bg-cortex-cyan/20 text-cortex-cyan hover:bg-cortex-cyan hover:text-black transition-all"
+                    >
+                      <Check className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={handleCancelEdit}
+                      title="취소 (ESC)"
+                      className="p-1 rounded bg-slate-800 text-slate-400 hover:text-white transition-all"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-baseline justify-between mb-2">
+                  <span className="text-[11px] font-mono text-cortex-muted">실제값</span>
+                  <div
+                    onClick={() => handleStartEdit(param.paramIndex, val)}
+                    title="클릭하여 키보드로 직접 값 입력 (0~100)"
+                    className="group/val flex items-center gap-1.5 cursor-pointer px-1.5 py-0.5 rounded hover:bg-cortex-panel transition-all"
+                  >
+                    <span className="text-sm font-mono font-black text-cortex-cyan group-hover/val:text-white transition-colors">
+                      {formatted}
+                    </span>
+                    <Edit3 className="w-3 h-3 text-cortex-muted opacity-50 group-hover/val:opacity-100 group-hover/val:text-cortex-cyan transition-all" />
+                  </div>
+                </div>
+              )}
 
               {/* Interactive Range Slider */}
               <input
