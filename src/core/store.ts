@@ -15,6 +15,8 @@ import { CORTEX_SLOT_CONFIGS, DEVICE_CATALOG } from './DeviceCatalog';
 import { profileManager } from './ProfileManager';
 import { midiLearnEngine } from './MidiLearnEngine';
 import { dynamicPagingRouter } from './DynamicPagingRouter';
+import { setlistManager } from './SetlistManager';
+import { tunerTempoEngine } from './TunerTempoEngine';
 
 interface AppState {
   // 모드 설정
@@ -30,15 +32,32 @@ interface AppState {
   midiDeviceName: string | null;
   setMidiStatus: (status: MidiConnectionStatus, deviceName?: string) => void;
 
-  // Livtra Nexfoot 4개 엔코더 상태
+  // Livtra Nexfoot 4개 엔코더 및 EXP 페달 상태
   nexfootStates: Record<NexfootEncoderId, NexfootEncoderState>;
   updateNexfootRotate: (id: NexfootEncoderId, value: number) => void;
   updateNexfootPush: (id: NexfootEncoderId, isPushed: boolean) => void;
+  expValue: number; // 0 ~ 127
+  updateExpValue: (val: number) => void;
 
   // Nano Cortex 프리셋 (0 ~ 63)
   currentPresetIndex: number;
   currentPresetName: string;
   setCurrentPresetIndex: (index: number) => void;
+
+  // 세트리스트 모드
+  setlistMode: boolean;
+  toggleSetlistMode: () => void;
+  currentSetlistIndex: number;
+  nextSetlistSong: () => void;
+  prevSetlistSong: () => void;
+
+  // 템포 및 튜너 상태
+  bpm: number;
+  setBpm: (bpm: number) => void;
+  tapBpm: () => void;
+  isTuning: boolean;
+  toggleTuner: () => void;
+  setIsTuning: (active: boolean) => void;
 
   // 시그널 체인 슬롯 (7개 슬롯)
   cortexSlots: CortexSlotState[];
@@ -68,7 +87,9 @@ interface AppState {
   startMidiLearn: (target: MidiLearnTarget) => void;
   cancelMidiLearn: () => void;
 
-  // UI 상태 (로그 펼치기/접기)
+  // UI 상태 (모바일 헤더 접기 및 로그 펼치기)
+  headerExpanded: boolean;
+  toggleHeaderExpanded: () => void;
   logExpanded: boolean;
   setLogExpanded: (expanded: boolean) => void;
   toggleLogExpanded: () => void;
@@ -151,14 +172,56 @@ export const useAppStore = create<AppState>((set, get) => {
       }));
     },
 
+    expValue: 0,
+    updateExpValue: (val) => {
+      set({ expValue: Math.max(0, Math.min(127, Math.round(val))) });
+    },
+
     currentPresetIndex: 0,
-    currentPresetName: 'Preset 01: Plexi Lead Crunch',
+    currentPresetName: setlistManager.getSongTitle(0),
     setCurrentPresetIndex: (index) => {
       const clamped = Math.max(0, Math.min(63, Math.round(index)));
       set({
         currentPresetIndex: clamped,
-        currentPresetName: `Preset ${String(clamped + 1).padStart(2, '0')}`,
+        currentPresetName: setlistManager.getSongTitle(clamped),
       });
+    },
+
+    setlistMode: false,
+    toggleSetlistMode: () => set((state) => ({ setlistMode: !state.setlistMode })),
+    currentSetlistIndex: 0,
+    nextSetlistSong: () => {
+      const next = setlistManager.nextSong();
+      if (next) {
+        get().setCurrentPresetIndex(next.presetIndex);
+        set({ currentSetlistIndex: setlistManager.getCurrentSetlistIndex() });
+      }
+    },
+    prevSetlistSong: () => {
+      const prev = setlistManager.prevSong();
+      if (prev) {
+        get().setCurrentPresetIndex(prev.presetIndex);
+        set({ currentSetlistIndex: setlistManager.getCurrentSetlistIndex() });
+      }
+    },
+
+    bpm: 120,
+    setBpm: (bpm) => {
+      tunerTempoEngine.setBpm(bpm);
+      set({ bpm });
+    },
+    tapBpm: () => {
+      const calculated = tunerTempoEngine.tap();
+      set({ bpm: calculated });
+    },
+    isTuning: false,
+    toggleTuner: () => {
+      const next = tunerTempoEngine.toggleTuner();
+      set({ isTuning: next });
+    },
+    setIsTuning: (active) => {
+      tunerTempoEngine.setTuner(active);
+      set({ isTuning: active });
     },
 
     cortexSlots: buildInitialSlots(),
@@ -222,7 +285,6 @@ export const useAppStore = create<AppState>((set, get) => {
 
     updateSlotParamValue: (slotId, paramIndex, value) => {
       dynamicPagingRouter.setParameterValue(slotId, paramIndex, value);
-      // Force trigger state update
       set((state) => ({ ...state }));
     },
 
@@ -266,7 +328,10 @@ export const useAppStore = create<AppState>((set, get) => {
     cancelMidiLearn: () => midiLearnEngine.cancelLearn(),
 
     // UI
-    logExpanded: false, // 기본값: 접힘 (화면 확보)
+    headerExpanded: false, // 기본 접힘(모바일 최적화)
+    toggleHeaderExpanded: () => set((state) => ({ headerExpanded: !state.headerExpanded })),
+
+    logExpanded: false,
     setLogExpanded: (expanded) => set({ logExpanded: expanded }),
     toggleLogExpanded: () => set((state) => ({ logExpanded: !state.logExpanded })),
 

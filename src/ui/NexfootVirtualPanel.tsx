@@ -1,20 +1,24 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../core/store';
 import { NexfootEncoderId } from '../types';
-import { CircleDot, RotateCw, ChevronLeft, ChevronRight, Sliders } from 'lucide-react';
+import { CircleDot, RotateCw, ChevronLeft, ChevronRight, Sliders, Footprints } from 'lucide-react';
 import { dynamicPagingRouter } from '../core/DynamicPagingRouter';
+import { expressionRouter } from '../core/ExpressionRouter';
 
 interface NexfootVirtualPanelProps {
   onSimulateRotate?: (id: NexfootEncoderId, value: number) => void;
   onSimulatePush?: (id: NexfootEncoderId, isPushed: boolean) => void;
+  onSimulateExp?: (value: number) => void;
 }
 
 export const NexfootVirtualPanel: React.FC<NexfootVirtualPanelProps> = ({
   onSimulateRotate,
   onSimulatePush,
+  onSimulateExp,
 }) => {
   const {
     nexfootStates,
+    expValue,
     isMockMode,
     selectedSlotId,
     cortexSlots,
@@ -27,26 +31,35 @@ export const NexfootVirtualPanel: React.FC<NexfootVirtualPanelProps> = ({
   const slot = cortexSlots.find((s) => s.slotId === selectedSlotId);
   const totalPages = dynamicPagingRouter.getTotalPages(slot?.modelId);
   const pagedMappings = dynamicPagingRouter.getCurrentPageMappings(slot?.modelId);
+  const expTarget = expressionRouter.resolveTarget();
+
+  const handleExpChange = (val: number) => {
+    if (onSimulateExp) {
+      onSimulateExp(val);
+    } else {
+      expressionRouter.handleExpressionMidi(val);
+    }
+  };
 
   return (
-    <section className="bg-cortex-card border border-cortex-border rounded-2xl p-5 sm:p-6 shadow-xl">
+    <section className="bg-cortex-card border border-cortex-border rounded-2xl p-4 sm:p-6 shadow-xl">
       {/* Panel Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-5 border-b border-cortex-border/60 pb-4">
-        <div className="flex items-center gap-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5 border-b border-cortex-border/60 pb-3.5">
+        <div className="flex items-center gap-2">
           <CircleDot className="w-5 h-5 text-cortex-purple" />
-          <h2 className="text-base font-bold text-white tracking-wide">
-            LIVTRA NEXFOOT 가상 패널
+          <h2 className="text-base sm:text-lg font-bold text-white tracking-wide">
+            Livtra Nexfoot
           </h2>
           <span className="text-xs text-cortex-muted hidden sm:inline">
-            (4x 푸시-로터리 엔코더 풋스위치)
+            (4x Encoders + 1x Expression)
           </span>
         </div>
 
         {/* Dynamic Paging Indicator Bar */}
-        <div className="flex items-center gap-2 bg-cortex-panel px-3 py-1.5 rounded-xl border border-cortex-border">
-          <Sliders className="w-4 h-4 text-cortex-purple" />
-          <span className="text-xs text-cortex-muted">현재 제어 슬롯:</span>
-          <span className="text-xs font-bold text-cortex-cyan">
+        <div className="flex items-center gap-2 bg-cortex-panel px-3 py-1 rounded-xl border border-cortex-border">
+          <Sliders className="w-3.5 h-3.5 text-cortex-purple" />
+          <span className="text-xs text-cortex-muted">제어 슬롯:</span>
+          <span className="text-xs font-bold text-cortex-cyan truncate max-w-[120px]">
             {slot?.modelName || selectedSlotId}
           </span>
           <div className="flex items-center gap-1 bg-cortex-dark px-1.5 py-0.5 rounded border border-cortex-border ml-1">
@@ -71,8 +84,8 @@ export const NexfootVirtualPanel: React.FC<NexfootVirtualPanelProps> = ({
         </div>
       </div>
 
-      {/* 4 Encoders Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Grid: 4 Encoders + 1 EXP Pedal Card */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3.5">
         {([1, 2, 3, 4] as NexfootEncoderId[]).map((id) => {
           const mapping = pagedMappings[id - 1];
           const pushBinding = activeProfile.bindings.find((b) => b.swId === `sw${id}` && b.type === 'push');
@@ -92,6 +105,50 @@ export const NexfootVirtualPanel: React.FC<NexfootVirtualPanelProps> = ({
             />
           );
         })}
+
+        {/* 5. Expression Pedal Card */}
+        <div className="bg-cortex-panel/90 border border-cortex-border/80 rounded-xl p-4 flex flex-col justify-between hover:border-cortex-cyan/50 transition-all">
+          {/* Card Top */}
+          <div className="w-full flex items-center justify-between text-xs mb-2">
+            <div className="flex items-center gap-1.5">
+              <Footprints className="w-4 h-4 text-cortex-cyan" />
+              <span className="font-mono font-bold text-cortex-cyan bg-cortex-cyan/15 px-2 py-0.5 rounded border border-cortex-cyan/30">
+                EXP IN
+              </span>
+            </div>
+            <span className="text-[10px] font-mono text-cortex-muted">CC 1</span>
+          </div>
+
+          <div className="text-[11px] font-bold text-white truncate my-1" title={expTarget.label}>
+            {expTarget.label}
+          </div>
+
+          {/* Vertical Expression Pedal Meter / Slider */}
+          <div className="my-2 flex flex-col items-center justify-center">
+            <div className="text-2xl font-black font-mono text-cortex-cyan">
+              {Math.round((expValue / 127) * 100)}%
+            </div>
+            <span className="text-[10px] font-mono text-cortex-muted mb-2">
+              Val: {expValue} / 127
+            </span>
+
+            {/* Range Slider for EXP */}
+            <input
+              type="range"
+              min="0"
+              max="127"
+              value={expValue}
+              onChange={(e) => handleExpChange(parseInt(e.target.value, 10))}
+              className="w-full h-2.5 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-cortex-cyan focus:outline-none"
+            />
+          </div>
+
+          {/* Bottom Info */}
+          <div className="w-full mt-3 pt-2.5 border-t border-cortex-border/50 text-[10px] font-mono text-cortex-muted flex items-center justify-between">
+            <span>Target: {expTarget.slotId}</span>
+            <span className="text-emerald-400">Continuous</span>
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -124,7 +181,6 @@ const DynamicEncoderCard: React.FC<DynamicEncoderCardProps> = ({
   const [dragStartY, setDragStartY] = useState(0);
   const [startVal, setStartVal] = useState(0);
 
-  // Normalize 0.0 ~ 1.0 to -135deg ~ +135deg (total 270 degrees)
   const angle = currentValue * 270 - 135;
   const ccNumbers = { 1: 57, 2: 58, 3: 59, 4: 60 };
   const pushCcNumbers = { 1: 21, 2: 22, 3: 23, 4: 24 };
@@ -162,21 +218,21 @@ const DynamicEncoderCard: React.FC<DynamicEncoderCardProps> = ({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
-      className={`relative bg-cortex-panel/90 border border-cortex-border/80 rounded-xl p-4 flex flex-col items-center justify-between transition-all ${
+      className={`relative bg-cortex-panel/90 border border-cortex-border/80 rounded-xl p-3.5 flex flex-col items-center justify-between transition-all ${
         state.isPushed
           ? 'ring-2 ring-cortex-purple shadow-lg shadow-cortex-purple/20'
           : 'hover:border-cortex-purple/50'
       }`}
     >
       {/* Top Header: SW Label & Target Param */}
-      <div className="w-full flex items-center justify-between text-xs mb-2">
+      <div className="w-full flex items-center justify-between text-xs mb-1.5">
         <div className="flex items-center gap-1.5">
-          <span className="font-mono font-bold text-cortex-purple bg-cortex-purple/15 px-2 py-0.5 rounded border border-cortex-purple/30">
+          <span className="font-mono font-bold text-cortex-purple bg-cortex-purple/15 px-1.5 py-0.5 rounded border border-cortex-purple/30">
             SW {id}
           </span>
           <span className="text-[10px] font-mono text-cortex-muted">CC {ccNumbers[id]}</span>
         </div>
-        <span className="text-cortex-cyan font-bold truncate max-w-[110px]">
+        <span className="text-cortex-cyan font-bold truncate max-w-[90px]">
           {paramDef ? paramDef.name : '(할당 없음)'}
         </span>
       </div>
@@ -184,46 +240,46 @@ const DynamicEncoderCard: React.FC<DynamicEncoderCardProps> = ({
       {/* Rotary Knob Visual */}
       <div
         onMouseDown={handleMouseDown}
-        className={`relative w-28 h-28 my-2 flex items-center justify-center cursor-pointer select-none group ${
+        className={`relative w-24 h-24 my-1.5 flex items-center justify-center cursor-pointer select-none group ${
           isMockMode ? 'cursor-ns-resize' : ''
         }`}
         title={isMockMode ? '위아래로 드래그하여 회전' : ''}
       >
         <svg className="w-full h-full transform -rotate-90">
           <circle
-            cx="56"
-            cy="56"
-            r="44"
+            cx="48"
+            cy="48"
+            r="38"
             className="stroke-cortex-border fill-transparent"
-            strokeWidth="6"
-            strokeDasharray="207 70"
+            strokeWidth="5"
+            strokeDasharray="179 60"
             strokeLinecap="round"
           />
           <circle
-            cx="56"
-            cy="56"
-            r="44"
+            cx="48"
+            cy="48"
+            r="38"
             className="stroke-cortex-purple fill-transparent transition-all duration-75"
-            strokeWidth="6"
-            strokeDasharray={`${currentValue * 207} 277`}
+            strokeWidth="5"
+            strokeDasharray={`${currentValue * 179} 240`}
             strokeLinecap="round"
           />
         </svg>
 
         {/* Center Knob Body */}
         <div
-          className="absolute w-20 h-20 rounded-full bg-gradient-to-b from-slate-700 to-slate-900 border-2 border-slate-600 shadow-inner flex items-center justify-center transition-transform duration-75"
+          className="absolute w-16 h-16 rounded-full bg-gradient-to-b from-slate-700 to-slate-900 border-2 border-slate-600 shadow-inner flex items-center justify-center transition-transform duration-75"
           style={{ transform: `rotate(${angle}deg)` }}
         >
-          <div className="w-2 h-2 rounded-full bg-cortex-purple shadow-sm shadow-cortex-purple -translate-y-6" />
+          <div className="w-1.5 h-1.5 rounded-full bg-cortex-purple shadow-sm shadow-cortex-purple -translate-y-5" />
         </div>
 
         {/* Value Text Overlay */}
         <div className="absolute flex flex-col items-center pointer-events-none">
-          <span className="text-sm font-black font-mono text-white tracking-tight">
+          <span className="text-xs font-black font-mono text-white tracking-tight">
             {formattedValue}
           </span>
-          <span className="text-[10px] text-cortex-muted uppercase font-mono">
+          <span className="text-[9px] text-cortex-muted uppercase font-mono">
             {Math.round(currentValue * 100)}%
           </span>
         </div>
@@ -238,35 +294,35 @@ const DynamicEncoderCard: React.FC<DynamicEncoderCardProps> = ({
         onMouseUp={() => {
           if (isMockMode) onPush(false);
         }}
-        className={`w-full mt-2 py-2 px-3 rounded-lg text-xs font-bold tracking-wide uppercase transition-all flex items-center justify-center gap-2 border ${
+        className={`w-full mt-1.5 py-1.5 px-2.5 rounded-lg text-[11px] font-bold tracking-wide uppercase transition-all flex items-center justify-center gap-1.5 border ${
           state.isPushed
             ? 'bg-cortex-purple text-white border-cortex-purple shadow-md shadow-cortex-purple/40 scale-[0.98]'
             : 'bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 border-slate-700'
         }`}
       >
         <span
-          className={`w-2 h-2 rounded-full ${
+          className={`w-1.5 h-1.5 rounded-full ${
             state.isPushed ? 'bg-white animate-ping' : 'bg-slate-500'
           }`}
         />
-        <span>PUSH: {state.isPushed ? 'ACTIVE' : 'OFF'}</span>
+        <span>PUSH: {state.isPushed ? 'ON' : 'OFF'}</span>
       </button>
 
       {/* Mapping Info Footer */}
-      <div className="w-full mt-3 pt-2.5 border-t border-cortex-border/50 text-[11px] text-cortex-muted space-y-1">
+      <div className="w-full mt-2.5 pt-2 border-t border-cortex-border/50 text-[10px] text-cortex-muted space-y-0.5">
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-1">
-            <RotateCw className="w-3 h-3 text-cortex-purple" /> 노브:
+            <RotateCw className="w-2.5 h-2.5 text-cortex-purple" /> 노브:
           </span>
-          <span className="text-slate-200 font-mono font-medium truncate max-w-[110px]">
+          <span className="text-slate-200 font-mono font-medium truncate max-w-[90px]">
             {paramDef ? paramDef.name : 'Unassigned'}
           </span>
         </div>
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-1">
-            <CircleDot className="w-3 h-3 text-emerald-400" /> 푸시 (CC {pushCcNumbers[id]}):
+            <CircleDot className="w-2.5 h-2.5 text-emerald-400" /> 푸시 ({pushCcNumbers[id]}):
           </span>
-          <span className="text-slate-200 font-mono font-medium truncate max-w-[110px]">
+          <span className="text-slate-200 font-mono font-medium truncate max-w-[90px]">
             {pushLabel}
           </span>
         </div>

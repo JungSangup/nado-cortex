@@ -5,6 +5,8 @@ import { NanoCortexProtocol, AMP_KNOB_IDS } from '../bluetooth/NanoCortexProtoco
 import { CORTEX_SLOT_CONFIGS, DEVICE_CATALOG } from './DeviceCatalog';
 import { dynamicPagingRouter } from './DynamicPagingRouter';
 import { midiLearnEngine } from './MidiLearnEngine';
+import { expressionRouter } from './ExpressionRouter';
+import { NotifyDecoder } from '../bluetooth/NotifyDecoder';
 import { CortexSlotId } from '../types';
 
 export interface BridgeRouterConfig {
@@ -19,10 +21,30 @@ export class BridgeRouter {
   constructor(config: BridgeRouterConfig = {}) {
     this.rateLimiter = new RateLimiter(config.throttleIntervalMs ?? 30);
     this.onSendRawBlePacket = config.onSendRawBlePacket;
+
+    // Connect Expression Router callback
+    expressionRouter.setSendParamCallback((slotId, paramIndex, value) => {
+      this.updateSlotParameter(slotId, paramIndex, value);
+    });
   }
 
   public setBleSender(sender: (packet: Uint8Array) => Promise<boolean> | boolean): void {
     this.onSendRawBlePacket = sender;
+  }
+
+  /**
+   * Handles incoming reverse notification from Nano Cortex c305
+   */
+  public handleNotifyPacket(payload: Uint8Array): void {
+    const decoded = NotifyDecoder.decode(payload);
+    if (decoded.type !== 'unknown') {
+      NotifyDecoder.applyToStore(decoded);
+      useAppStore.getState().addLog({
+        direction: 'ble_in',
+        source: 'REVERSE_SYNC',
+        message: `Synced ${decoded.type}: ${JSON.stringify(decoded)}`,
+      });
+    }
   }
 
   /**
@@ -35,6 +57,26 @@ export class BridgeRouter {
 
     const packet = NanoCortexProtocol.buildPresetChangePacket(clamped);
     this.sendBlePacket(packet, `Preset Change -> ${clamped + 1} (${store.currentPresetName})`);
+  }
+
+  /**
+   * Triggers Tap Tempo transmission (CC#42 / BLE packet)
+   */
+  public triggerTapTempo(): void {
+    const store = useAppStore.getState();
+    const bpm = store.bpm;
+    const packet = new Uint8Array([0x06, 0xC0, 0x08, 0x04, 0x10, bpm, 0x2A, 0x00, 0x00, 0x00]);
+    this.sendBlePacket(packet, `Tap Tempo (${bpm} BPM)`);
+  }
+
+  /**
+   * Toggles Tuner mode (CC#43 / BLE packet)
+   */
+  public toggleTuner(): void {
+    const store = useAppStore.getState();
+    const active = store.isTuning;
+    const packet = new Uint8Array([0x06, 0xC0, 0x08, 0x05, 0x10, active ? 0x01 : 0x00, 0x2B, 0x00, 0x00, 0x00]);
+    this.sendBlePacket(packet, `Tuner Mode: ${active ? 'ON (Mute)' : 'OFF'}`);
   }
 
   /**
@@ -58,7 +100,7 @@ export class BridgeRouter {
   }
 
   /**
-   * Directly sets a parameter value from UI or rotary
+   * Directly sets a parameter value from UI, rotary, or EXP pedal
    */
   public updateSlotParameter(slotId: CortexSlotId, paramIndex: number, normalizedValue: number): void {
     const store = useAppStore.getState();
@@ -93,7 +135,7 @@ export class BridgeRouter {
     const slot = store.cortexSlots.find((s) => s.slotId === slotId);
     if (!slot) return;
 
-    const nextActiveState = slot.isBypassed; // Currently bypassed -> turn Active
+    const nextActiveState = slot.isBypassed;
     store.toggleSlotBypass(slotId);
 
     store.addLog({
@@ -118,6 +160,13 @@ export class BridgeRouter {
     if (rawPacket) {
       this.sendBlePacket(rawPacket, `Slot ${slot.name} ${nextActiveState ? 'ON' : 'BYPASS'}`);
     }
+  }
+
+  /**
+   * Handles expression pedal MIDI CC:1
+   */
+  public handleExpressionEvent(ccValue: number): void {
+    expressionRouter.handleExpressionMidi(ccValue);
   }
 
   /**
@@ -193,7 +242,14 @@ export class BridgeRouter {
     if (encoderId === 1) this.toggleSlot('pre_fx_1');
     else if (encoderId === 2) this.toggleSlot('pre_fx_2');
     else if (encoderId === 3) this.toggleSlot('post_fx_1');
-    else if (encoderId === 4) store.nextParamPage();
+    else if (encoderId === 4) {
+      if (store.setlistMode) {
+        store.nextSetlistSong();
+        this.changePreset(store.currentPresetIndex);
+      } else {
+        store.nextParamPage();
+      }
+    }
   }
 
   private handleRotateAction(encoderId: number, event: NexfootEvent): void {
@@ -219,7 +275,7 @@ export class BridgeRouter {
     let nextNormVal = 0.5;
 
     if (event.isRelative) {
-      delta = (event.step ?? 1) * 0.02; // 2% delta per tick
+      delta = (event.step ?? 1) * 0.02;
       nextNormVal = dynamicPagingRouter.adjustParameterValue(selectedSlotId, paramDef.paramIndex, delta);
     } else {
       nextNormVal = (event.rotateValue ?? 0) / 127.0;

@@ -51,6 +51,9 @@ export default function App() {
           message: `Received Type:0x${packet.messageType.toString(16)} Len:${packet.payload.length}B`,
           rawBytes: Array.from(packet.payload),
         });
+
+        // Trigger Reverse Synchronization Decoder
+        router.handleNotifyPacket(packet.payload);
       },
       onError: (err) => {
         addLog({
@@ -80,6 +83,11 @@ export default function App() {
               source: 'RAW_MIDI',
               message: `Raw CC [Ch:${ch} CC:${cc} Val:${val}]`,
             });
+
+            // If Expression Pedal CC: 1
+            if (cc === 1) {
+              router.handleExpressionEvent(val);
+            }
 
             // Feed to MidiLearnEngine if active
             midiLearnEngine.handleMidiMessage(ch, cc, val);
@@ -196,6 +204,10 @@ export default function App() {
     }
   };
 
+  const handleSimulateExp = (value: number) => {
+    bridgeRouterRef.current?.handleExpressionEvent(value);
+  };
+
   const handleToggleSlot = (slotId: CortexSlotId) => {
     bridgeRouterRef.current?.toggleSlot(slotId);
   };
@@ -212,6 +224,14 @@ export default function App() {
     bridgeRouterRef.current?.updateSlotParameter(slotId, paramIndex, value);
   };
 
+  const handleTapTempo = () => {
+    bridgeRouterRef.current?.triggerTapTempo();
+  };
+
+  const handleToggleTuner = () => {
+    bridgeRouterRef.current?.toggleTuner();
+  };
+
   return (
     <div className="min-h-screen bg-cortex-dark text-cortex-text flex flex-col">
       <Header
@@ -221,28 +241,31 @@ export default function App() {
         onDisconnectMidi={handleDisconnectMidi}
       />
 
-      {/* Main 3-Section Dashboard: 1. Cortex Monitor -> 2. Nexfoot Panel -> 3. Event Logs */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-        {/* 1. 최상단: Nano Cortex 실시간 모니터 & 컨트롤러 (슬롯 및 파라미터 인스펙터) */}
+      {/* Main 3-Section Dashboard: 1. Nano Cortex -> 2. Livtra Nexfoot -> 3. Event Logs */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-6 space-y-5">
+        {/* 1. 최상단: Nano Cortex 모니터 & 컨트롤러 (세트리스트, 튜너/템포, 슬롯 및 파라미터) */}
         <CortexMonitorPanel
           onToggleSlot={handleToggleSlot}
           onChangePreset={handleChangePreset}
           onChangeModel={handleChangeModel}
           onParamChange={handleParamChange}
+          onTapTempo={handleTapTempo}
+          onToggleTuner={handleToggleTuner}
         />
 
-        {/* 2. 중단: Livtra Nexfoot 가상 패널 (엔코더 게이지 및 페이징 인디케이터) */}
+        {/* 2. 중단: Livtra Nexfoot 컨트롤러 (4개 엔코더 + 스마트 EXP 페달) */}
         <NexfootVirtualPanel
           onSimulateRotate={handleSimulateRotate}
           onSimulatePush={handleSimulatePush}
+          onSimulateExp={handleSimulateExp}
         />
 
         {/* 3. 최하단: 실시간 패킷 및 미디 이벤트 로그 콘솔 (접기/펼치기 가능) */}
         <EventLogConsole />
       </main>
 
-      <footer className="border-t border-cortex-border py-4 px-6 text-center text-xs text-cortex-muted">
-        Nado Cortex v0.0.2 • Spec-Driven Development • Built for Neural DSP Nano Cortex & Livtra Nexfoot
+      <footer className="border-t border-cortex-border py-3 px-6 text-center text-xs text-cortex-muted">
+        Nado Cortex v0.0.3 • Spec-Driven Development • Built for Neural DSP Nano Cortex & Livtra Nexfoot
       </footer>
     </div>
   );
