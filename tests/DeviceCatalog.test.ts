@@ -16,11 +16,31 @@ describe('DeviceCatalog & NanoCortexProtocol (TASK-213)', () => {
 
   it('should return matching models for slots', () => {
     const preFxModels = getModelsForSlot('pre_fx_1');
-    expect(preFxModels.length).toBeGreaterThan(0);
+    expect(preFxModels.length).toBeGreaterThan(5);
     expect(preFxModels.some((m) => m.id === 'ts9_overdrive')).toBe(true);
+    expect(preFxModels.some((m) => m.id === 'obsessive_drive')).toBe(true);
+    expect(preFxModels.some((m) => m.id === 'legendary_87')).toBe(true);
+
+    const ampModels = getModelsForSlot('amp');
+    expect(ampModels.length).toBeGreaterThanOrEqual(10);
+    expect(ampModels.some((m) => m.id === 'capture_slot_01')).toBe(true);
+
+    const cabModels = getModelsForSlot('cab');
+    expect(cabModels.length).toBeGreaterThanOrEqual(5);
+    expect(cabModels.some((m) => m.id === 'ir_slot_01')).toBe(true);
 
     const postDelayModels = getModelsForSlot('post_fx_1');
     expect(postDelayModels.some((m) => m.id === 'digital_delay')).toBe(true);
+    expect(postDelayModels.some((m) => m.id === 'tape_delay')).toBe(true);
+
+    const postReverbModels = getModelsForSlot('post_fx_2');
+    expect(postReverbModels.some((m) => m.id === 'blossom_st')).toBe(true);
+    expect(postReverbModels.some((m) => m.id === 'mind_hall')).toBe(true);
+
+    const postModModels = getModelsForSlot('post_fx_3');
+    expect(postModModels.some((m) => m.id === 'chorus_dc2w')).toBe(true);
+    expect(postModModels.some((m) => m.id === 'phase_95')).toBe(true);
+    expect(postModModels.some((m) => m.id === 'graphic_9_eq')).toBe(true);
   });
 
   it('should build preset change BLE packet correctly', () => {

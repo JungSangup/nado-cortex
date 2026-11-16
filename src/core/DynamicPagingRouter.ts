@@ -111,6 +111,17 @@ export class DynamicPagingRouter {
     return this.setParameterValue(slotId, paramIndex, updated);
   }
 
+  public onModelChanged(slotId: CortexSlotId, modelId: string): void {
+    const model = DEVICE_CATALOG[modelId];
+    if (!model) return;
+    const slotMap = new Map<number, number>();
+    model.parameters.forEach(p => {
+      slotMap.set(p.paramIndex, p.defaultValue);
+    });
+    this.parameterValues.set(slotId, slotMap);
+    this.currentPageIndex = 0; // Reset page
+  }
+
   public getParametersForSlot(slotId: CortexSlotId, modelId?: string): DeviceParameterDef[] {
     const config = CORTEX_SLOT_CONFIGS[slotId];
     if (!config) return [];

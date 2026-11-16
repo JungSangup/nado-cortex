@@ -25,7 +25,7 @@ describe('DynamicPagingRouter (TASK-215)', () => {
     expect(p1[0].parameter?.name).toBe('Time');     // param 0
     expect(p1[1].parameter?.name).toBe('Feedback'); // param 1
     expect(p1[2].parameter?.name).toBe('Mix');      // param 2
-    expect(p1[3].parameter?.name).toBe('Tone');     // param 3
+    expect(p1[3].parameter?.name).toBe('Tone / Hi-Cut'); // param 3
 
     // Next Page (Page 2)
     router.nextPage('digital_delay');
@@ -33,7 +33,7 @@ describe('DynamicPagingRouter (TASK-215)', () => {
 
     const p2 = router.getCurrentPageMappings('digital_delay');
     expect(p2[0].parameter?.name).toBe('Mod Depth'); // param 4
-    expect(p2[1].parameter?.name).toBe('Spillover'); // param 5
+    expect(p2[1].parameter?.name).toBe('Spillover Trail'); // param 5
     expect(p2[2].parameter).toBeNull();              // unassigned
     expect(p2[3].parameter).toBeNull();              // unassigned
   });

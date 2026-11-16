@@ -190,12 +190,14 @@ export const useAppStore = create<AppState>((set, get) => {
     setSlotModel: (slotId, modelId) => {
       const model = DEVICE_CATALOG[modelId];
       if (!model) return;
+      dynamicPagingRouter.onModelChanged(slotId, modelId);
       set((state) => ({
         cortexSlots: state.cortexSlots.map((slot) =>
           slot.slotId === slotId
             ? { ...slot, modelId: model.id, modelName: model.name }
             : slot
         ),
+        paramPageIndex: 0,
       }));
     },
 
