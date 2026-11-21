@@ -17,20 +17,31 @@ describe('BridgeRouter v0.0.2', () => {
     useAppStore.getState().setParamPageIndex(0);
   });
 
-  it('should toggle slot bypass when receiving a push event', () => {
-    const initialSlotState = useAppStore.getState().cortexSlots.find((s) => s.slotId === 'pre_fx_1')?.isBypassed;
-
+  it('should explicitly set slot active on push=true (127) and bypass on push=false (0)', () => {
+    // 1. Send push=true (Nexfoot ON / Val 127)
     router.handleNexfootEvent({
-      encoderId: 1, // SW1 maps to pre_fx_1 toggle
+      encoderId: 1,
       type: 'push',
       isPushed: true,
       channel: 1,
       rawCcOrNote: 21,
     });
 
-    const updatedSlotState = useAppStore.getState().cortexSlots.find((s) => s.slotId === 'pre_fx_1')?.isBypassed;
-    expect(updatedSlotState).toBe(!initialSlotState);
-    expect(bleSenderMock).toHaveBeenCalledWith(expect.any(Uint8Array));
+    let slot = useAppStore.getState().cortexSlots.find((s) => s.slotId === 'pre_fx_1');
+    expect(slot?.isBypassed).toBe(false); // Active (ON)
+    expect(bleSenderMock).toHaveBeenCalled();
+
+    // 2. Send push=false (Nexfoot OFF / Val 0)
+    router.handleNexfootEvent({
+      encoderId: 1,
+      type: 'push',
+      isPushed: false,
+      channel: 1,
+      rawCcOrNote: 21,
+    });
+
+    slot = useAppStore.getState().cortexSlots.find((s) => s.slotId === 'pre_fx_1');
+    expect(slot?.isBypassed).toBe(true); // Bypassed (OFF)
   });
 
   it('should update dynamic slot parameter when receiving a rotate event', () => {
@@ -45,6 +56,23 @@ describe('BridgeRouter v0.0.2', () => {
 
     const updatedVal = dynamicPagingRouter.getParameterValue('pre_fx_1', 0);
     expect(updatedVal).toBe(1.0); // 127 / 127 = 1.0
+    expect(bleSenderMock).toHaveBeenCalledWith(expect.any(Uint8Array));
+  });
+
+  it('should adjust parameter by exactly +0.01 (+1%) per relative clockwise tick', () => {
+    dynamicPagingRouter.setParameterValue('pre_fx_1', 0, 0.50);
+
+    router.handleNexfootEvent({
+      encoderId: 1,
+      type: 'rotate',
+      isRelative: true,
+      step: 1, // Clockwise tick (+1)
+      channel: 1,
+      rawCcOrNote: 57,
+    });
+
+    const updatedVal = dynamicPagingRouter.getParameterValue('pre_fx_1', 0);
+    expect(updatedVal).toBe(0.51); // 0.50 + 0.01 = 0.51
     expect(bleSenderMock).toHaveBeenCalledWith(expect.any(Uint8Array));
   });
 

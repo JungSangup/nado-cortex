@@ -77,6 +77,7 @@ interface AppState {
   // 프로필 관리
   activeProfile: MappingProfile;
   profiles: MappingProfile[];
+  syncActiveProfile: () => void;
   setActiveProfile: (profileId: string) => void;
   createProfile: (name: string) => void;
   importProfile: (jsonString: string) => { success: boolean; error?: string };
@@ -109,6 +110,18 @@ interface AppState {
   logs: PacketLogEntry[];
   addLog: (entry: Omit<PacketLogEntry, 'id' | 'timestamp'>) => void;
   clearLogs: () => void;
+
+  // 실시간 BLE 양방향 진단 상태 (v0.0.6)
+  bleTxCount: number;
+  bleRxCount: number;
+  lastTxDescription: string;
+  lastRxDescription: string;
+  lastRxHex: string;
+  isBleTxActive: boolean;
+  isBleRxActive: boolean;
+  recordBleTx: (description: string) => void;
+  recordBleRx: (description: string, rawHex: string) => void;
+  resetBleCounts: () => void;
 }
 
 const buildInitialSlots = (): CortexSlotState[] => {
@@ -141,6 +154,11 @@ export const useAppStore = create<AppState>((set, get) => {
   // Subscribe to MidiLearnEngine
   midiLearnEngine.subscribe((learnState) => {
     set({ midiLearnState: learnState });
+  });
+
+  // Automatically sync store activeProfile and MIDI parser config when MIDI Learn finishes
+  midiLearnEngine.setOnProfileUpdated(() => {
+    get().syncActiveProfile();
   });
 
   return {
@@ -303,6 +321,14 @@ export const useAppStore = create<AppState>((set, get) => {
     activeProfile: profileManager.getActiveProfile(),
     profiles: profileManager.getProfiles(),
 
+    syncActiveProfile: () => {
+      const p = profileManager.getActiveProfile();
+      set({
+        activeProfile: JSON.parse(JSON.stringify(p)),
+        profiles: profileManager.getProfiles(),
+      });
+    },
+
     setActiveProfile: (profileId) => {
       const p = profileManager.setActiveProfile(profileId);
       set({ activeProfile: p, profiles: profileManager.getProfiles() });
@@ -409,5 +435,43 @@ export const useAppStore = create<AppState>((set, get) => {
       }));
     },
     clearLogs: () => set({ logs: [] }),
+
+    // 실시간 BLE 양방향 진단 상태 (v0.0.6)
+    bleTxCount: 0,
+    bleRxCount: 0,
+    lastTxDescription: '대기 중',
+    lastRxDescription: '대기 중',
+    lastRxHex: '',
+    isBleTxActive: false,
+    isBleRxActive: false,
+    recordBleTx: (description) => {
+      set((state) => ({
+        bleTxCount: state.bleTxCount + 1,
+        lastTxDescription: description,
+        isBleTxActive: true,
+      }));
+      setTimeout(() => {
+        set({ isBleTxActive: false });
+      }, 150);
+    },
+    recordBleRx: (description, rawHex) => {
+      set((state) => ({
+        bleRxCount: state.bleRxCount + 1,
+        lastRxDescription: description,
+        lastRxHex: rawHex,
+        isBleRxActive: true,
+      }));
+      setTimeout(() => {
+        set({ isBleRxActive: false });
+      }, 150);
+    },
+    resetBleCounts: () =>
+      set({
+        bleTxCount: 0,
+        bleRxCount: 0,
+        lastTxDescription: '초기화됨',
+        lastRxDescription: '초기화됨',
+        lastRxHex: '',
+      }),
   };
 });

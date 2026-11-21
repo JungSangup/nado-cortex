@@ -14,7 +14,7 @@ import { NexfootParser } from './midi/NexfootParser';
 import { midiLearnEngine } from './core/MidiLearnEngine';
 
 export default function App() {
-  const { isMockMode, setBleStatus, setMidiStatus, addLog, showNexfootPanel, viewMode } = useAppStore();
+  const { isMockMode, setBleStatus, setMidiStatus, addLog, showNexfootPanel, viewMode, activeProfile } = useAppStore();
 
   const bridgeRouterRef = useRef<BridgeRouter | null>(null);
   const bleManagerRef = useRef<WebBluetoothManager | null>(null);
@@ -52,8 +52,8 @@ export default function App() {
           rawBytes: Array.from(packet.payload),
         });
 
-        // Trigger Reverse Synchronization Decoder
-        router.handleNotifyPacket(packet.payload);
+        // Trigger Reverse Synchronization Decoder (raw frame preferred)
+        router.handleNotifyPacket(packet.raw || packet.payload);
       },
       onError: (err) => {
         addLog({
@@ -84,9 +84,19 @@ export default function App() {
               message: `Raw CC [Ch:${ch} CC:${cc} Val:${val}]`,
             });
 
-            // If Expression Pedal CC: 1
-            if (cc === 1) {
-              router.handleExpressionEvent(val);
+            // Handle Expression Pedal:
+            // Only process if MIDI Learn is inactive, profile explicitly defines 'exp' binding,
+            // and this CC is NOT assigned to any SW1~SW4 knob (rotate) or push switch.
+            const storeState = useAppStore.getState();
+            if (!storeState.midiLearnState.active) {
+              const expBinding = storeState.activeProfile.bindings.find((b) => b.swId === 'exp');
+              const isEncoderCc = storeState.activeProfile.bindings.some(
+                (b) => b.swId !== 'exp' && b.ccNumber === cc
+              );
+
+              if (expBinding && expBinding.ccNumber === cc && !isEncoderCc) {
+                router.handleExpressionEvent(val);
+              }
             }
 
             // Feed to MidiLearnEngine if active
@@ -122,6 +132,13 @@ export default function App() {
       midiManagerRef.current?.disconnect();
     };
   }, [setBleStatus, setMidiStatus, addLog]);
+
+  // Synchronize Nexfoot Parser when Active Profile changes
+  useEffect(() => {
+    if (activeProfile && midiManagerRef.current) {
+      midiManagerRef.current.syncFromProfile(activeProfile.bindings);
+    }
+  }, [activeProfile]);
 
   // Mode Switch Handler
   useEffect(() => {
@@ -232,6 +249,15 @@ export default function App() {
     bridgeRouterRef.current?.toggleTuner();
   };
 
+  const handlePingPreset = () => {
+    const cur = useAppStore.getState().currentPresetIndex;
+    bridgeRouterRef.current?.changePreset(cur);
+  };
+
+  const handlePingToggleSlot = () => {
+    bridgeRouterRef.current?.toggleSlot('pre_fx_1');
+  };
+
   return (
     <div className="min-h-screen bg-cortex-dark text-cortex-text flex flex-col">
       <Header
@@ -251,6 +277,8 @@ export default function App() {
           onParamChange={handleParamChange}
           onTapTempo={handleTapTempo}
           onToggleTuner={handleToggleTuner}
+          onPingPreset={handlePingPreset}
+          onPingToggleSlot={handlePingToggleSlot}
         />
 
         {/* 2. 중단: Livtra Nexfoot 컨트롤러 (Live 모드에서는 숨김, Advanced 모드에서만 토글 가능) */}
@@ -268,7 +296,7 @@ export default function App() {
 
       {viewMode !== 'live' && (
         <footer className="border-t border-cortex-border py-3 px-6 text-center text-xs text-cortex-muted">
-          Nado Cortex v0.0.5 • Spec-Driven Development • Built for Neural DSP Nano Cortex & Livtra Nexfoot
+          Nado Cortex v0.0.6 • Spec-Driven Development • Built for Neural DSP Nano Cortex & Livtra Nexfoot
         </footer>
       )}
     </div>

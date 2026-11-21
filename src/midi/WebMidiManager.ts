@@ -22,6 +22,14 @@ export class WebMidiManager {
     return typeof navigator !== 'undefined' && 'requestMIDIAccess' in navigator;
   }
 
+  public getParser(): NexfootParser {
+    return this.parser;
+  }
+
+  public syncFromProfile(bindings: Array<{ swId: string; type: string; ccNumber: number }>): void {
+    this.parser.syncFromProfile(bindings);
+  }
+
   public async init(): Promise<boolean> {
     if (!this.isSupported()) {
       this.callbacks.onError(new Error('Web MIDI API is not supported in this browser.'));

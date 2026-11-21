@@ -43,6 +43,32 @@ export class NexfootParser {
     this.config = config;
   }
 
+  public getConfig(): NexfootMidiConfig {
+    return { ...this.config };
+  }
+
+  /**
+   * Synchronizes CC mapping from MappingProfile bindings
+   */
+  public syncFromProfile(bindings: Array<{ swId: string; type: string; ccNumber: number }>): void {
+    const updated: NexfootMidiConfig = {
+      sw1: { ...this.config.sw1 },
+      sw2: { ...this.config.sw2 },
+      sw3: { ...this.config.sw3 },
+      sw4: { ...this.config.sw4 },
+    };
+
+    for (let i = 1; i <= 4; i++) {
+      const swKey = `sw${i}` as keyof NexfootMidiConfig;
+      const rotBind = bindings.find((b) => b.swId === swKey && b.type === 'rotate');
+      const pushBind = bindings.find((b) => b.swId === swKey && b.type === 'push');
+      if (rotBind) updated[swKey].rotateCc = rotBind.ccNumber;
+      if (pushBind) updated[swKey].pushCc = pushBind.ccNumber;
+    }
+
+    this.config = updated;
+  }
+
   /**
    * Parses standard 3-byte MIDI message
    * Status byte: 0xBn = CC, 0x9n = NoteOn, 0x8n = NoteOff
@@ -80,32 +106,34 @@ export class NexfootParser {
 
         // Check Rotate CC
         if (ccNum === conf.rotateCc) {
-          // Livtra Nexfoot Relative Mode: Val 0 = CW (+1), Val 1 = CCW (-1)
-          if (val === 0) {
+          // Livtra Nexfoot Relative Mode:
+          // 시계방향 (CW) 1틱 = Val 127 (+1)
+          // 반시계방향 (CCW) 1틱 = Val 0 (-1)
+          if (val === 127 || val === 65) {
             return {
               encoderId: id,
               type: 'rotate',
               isRelative: true,
-              step: 1, // Clockwise tick
+              step: 1, // Clockwise tick (+1)
+              channel,
+              rawCcOrNote: ccNum,
+            };
+          } else if (val === 0 || val === 63) {
+            return {
+              encoderId: id,
+              type: 'rotate',
+              isRelative: true,
+              step: -1, // Counter-Clockwise tick (-1)
               channel,
               rawCcOrNote: ccNum,
             };
           } else if (val === 1) {
+            // General Relative fallback
             return {
               encoderId: id,
               type: 'rotate',
               isRelative: true,
-              step: -1, // Counter-Clockwise tick
-              channel,
-              rawCcOrNote: ccNum,
-            };
-          } else if (val === 127) {
-            // Alternative standard relative decrement
-            return {
-              encoderId: id,
-              type: 'rotate',
-              isRelative: true,
-              step: -1,
+              step: 1,
               channel,
               rawCcOrNote: ccNum,
             };

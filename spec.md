@@ -1,9 +1,9 @@
 # 시스템 명세서: Nado Cortex (나도 코텍스)
 
 - **상태**: 작성 및 검토 중 (Living Document)
-- **현재 진행 마일스톤**: [v0.0.5 (Live vs Advanced 모드, Nexfoot 7시~4시 노브 및 패널 접기)](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.5/plan.md)
-- **최신 버전**: v0.0.5
-- **작성일**: 2026-11-16
+- **현재 진행 마일스톤**: [v0.0.6 (Nexfoot 패널 직관적 MIDI Learn & Nano Cortex 양방향 통신 정밀 진단)](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.6/plan.md)
+- **최신 버전**: v0.0.6
+- **작성일**: 2026-11-20
 
 ---
 
@@ -16,6 +16,7 @@
 | **v0.0.3** | 2026-11-16 | • **1. 스마트 익스프레션 페달(EXP In) 연동** (CC 1 수신 ➔ Wah, Pitch Wham, Volume, 딜레이 믹스 실시간 제어 및 가상 EXP 바)<br>• **2. 프리셋별 곡명(Setlist) 및 공연 모드** (0~63 프리셋에 곡명 지정, 공연 순서대로 넘기는 세트리스트 내비게이션)<br>• **3. 탭 템포(Tap Tempo) & 튜너(Tuner) 화면 연동** (BPM 연산 및 Nano Cortex 튜너 모드 On/Off 및 시각 튜너 디스플레이)<br>• **4. 실기기 역방향 동기화(Notify c305 정밀 디코더)** (본체 물리 노브/버튼 조작 시 화면 및 가상 게이지 실시간 미러링)<br>• **5. 모바일 최적화 상단 고정 헤더 접기/펼치기** (모바일 화면 공간 확보를 위한 상단 컴팩트 토글)<br>• **6. UI 타이틀 간소화** ("Nano Cortex", "Livtra Nexfoot"으로 심플 표기) | [plan.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.3/plan.md), [tasks.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.3/tasks.md), [review.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.3/review.md) |
 | **v0.0.4** | 2026-11-16 | • **1. 시그널 체인 슬롯 분리 라인 처리** (Neural Capture 및 Cab/IR을 FX 슬롯과 별개의 독립 라인/섹션으로 분리 렌더링)<br>• **2. 파라미터 직접 입력 모드 (Direct Numeric Input)** (슬라이더 조작뿐 아니라 수치 라벨 클릭 시 키보드 직접 타이핑 및 Min/Max 검증)<br>• **3. Livtra Nexfoot 독립 모드 & 패널 On/Off 토글** (Nexfoot 미사용 시 가상 패널을 On/Off 숨겨 Nano Cortex 풀화면 에디터로 활용) | [plan.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.4/plan.md), [tasks.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.4/tasks.md), [review.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.4/review.md) |
 | **v0.0.5** | 2026-11-16 | • **1. Live 모드 vs Advanced 모드 전환** (화면 최상단 원터치 스위치: 연주 전용 간편 Live 모드 vs 전체 에디터 Advanced 모드)<br>• **2. Nexfoot 노브 가동 범위 개선** (실제 아날로그 이펙터와 동일한 7시~4시 방향 270도 아크 게이지 및 0%~100% 시각화)<br>• **3. Core Amp/Cab 및 Nexfoot 패널 아코디언 접기/펼치기** (이벤트 로그처럼 필요할 때만 펼쳐보는 접이식 패널 인터랙션)<br>• **4. UI/UX 리파인먼트** (Live/Advanced 라벨 간소화, Nano Cortex 타이틀 고정, Tuner 버튼 위치 고정, FX 슬롯 1~5번 개별 고유 컬러 및 Bypass 시 채도 다운) | [plan.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.5/plan.md), [tasks.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.5/tasks.md), [review.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.5/review.md) |
+| **v0.0.6** | 2026-11-20 | • **1. Nexfoot 패널 중심 직관적 MIDI Learn** (가상 Nexfoot 각 카드에서 SW 1~4 노브/푸시, EXP의 CC 번호 직접 확인 및 원터치 Learn)<br>• **2. Nano Cortex BLE 양방향 통신 정밀 점검 및 버그 픽스** (`PacketFramer`/`NotifyDecoder` 페이로드 오프셋 불일치 해결로 역방향 동기화 정상화)<br>• **3. 실시간 BLE 양방향 통신 진단기 (Diagnostics Inspector)** (TX/RX 패킷 카운터, LED 점멸, 테스트 핑 송신, 수신 패킷 실시간 디코딩 뷰) | [plan.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.6/plan.md), [tasks.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.6/tasks.md), [review.md](file:///Users/imac/Workspace/github/nado-cortex/docs/v0.0.6/review.md) |
 
 ---
 
@@ -209,6 +210,26 @@
     - `post_fx_3` (FX3 Delay/Rev): 딥 스카이 블루
     - **Bypass (Off) 상태**: `grayscale opacity-45` 및 무채색(`text-zinc-500`)으로 채도를 다운시켜 전원 꺼짐을 직관적으로 식별 가능.
 
+### 4.14 [신규 v0.0.6] Livtra Nexfoot 패널 중심의 직관적 MIDI Learn
+- **FR-31 (Nexfoot 각 SW 및 EXP 전용 MIDI Learn UI)**:
+  - 개별 이펙터 파라미터 랙에 분산되어 있던 MIDI Learn을 **Livtra Nexfoot 가상 패널의 각 하드웨어 카드(SW 1~4 및 EXP)**로 집약/전면 배치.
+  - **SW 1~4 노브 (Rotate)**: 현재 할당된 CC 번호(기본 CC 57~60)와 동작 모드(상대값 Relative / 절대값 Absolute) 표시 및 **`[Learn]`** 버튼 제공.
+  - **SW 1~4 푸시 (Push)**: 현재 할당된 푸시 CC 번호(기본 CC 21~24) 및 푸시 타겟 동작(슬롯 온오프 토글 / 페이지 넘김) 표시 및 **`[Learn]`** 버튼 제공.
+  - **EXP 페달**: 현재 할당된 CC 번호(기본 CC 1) 표시 및 **`[Learn]`** 버튼 제공.
+  - `[Learn]` 활성화 시 해당 카드에 시각적 학습 상태(`Learn...` 펄스 인디케이터) 표시 및 Nexfoot 하드웨어 조작 즉시 CC 번호/입력 모드를 자동 감지하여 현재 활성 프로필(`activeProfile.bindings`)에 영구 바인딩.
+
+### 4.15 [신규 v0.0.6] Nano Cortex BLE 양방향 통신 정밀 점검 및 실시간 진단기 (Diagnostics Inspector)
+- **FR-32 (양방향 신호 무결성 복구 & 실시간 BLE 진단 도구)**:
+  - **역방향 수신(RX) 패킷 디코더 무결성 복구**:
+    - `PacketFramer` 파싱 결과(`packet.raw` vs `packet.payload`)와 `NotifyDecoder.decode()` 사이의 Delimiter(`0xC0`) 오프셋 불일치 버그를 근본적으로 수정하여, Nano Cortex 본체의 물리 노브(Gain/Bass/Mid 등) 조작 및 풋스위치 조작 시 웹 대시보드 화면이 100% 실시간 역동기화되도록 보장.
+  - **송신(TX) 신호 안정화 및 GATT Write 폴백**:
+    - Bluetooth Characteristic(`c304`) 전송 시 브라우저/기기 간 응답 방식(`writeValueWithResponse` 및 `writeValueWithoutResponse`) 호환성을 강화하고, 쓰기 실패 시 에러 트래핑 및 재시도/로깅 지원.
+  - **실시간 BLE 통신 진단기 (BLE Diagnostics Inspector)**:
+    - Nano Cortex 패널(또는 전용 진단 바)에 **실시간 통신 상태 배너**:
+      - **TX / RX LED 점멸 인디케이터 및 실시간 패킷 카운터** (송신 누적 건수 / 수신 누적 건수).
+      - **테스트 핑(Ping / Test Signal) 버튼**: 프리셋 전환 핑, 슬롯 온오프 핑 등 원클릭 테스트 버튼을 제공하여 실기기가 무선 신호에 즉각 반응하는지 현장에서 바로 검증.
+      - **최근 수신 패킷 인스펙터**: Nano Cortex 본체에서 마지막으로 날아온 패킷의 HEX 덤프 및 디코딩된 의미(예: `[RX] Amp Gain: 72%`, `[RX] Slot Pre-FX 1: BYPASS`)를 1줄 상태 바로 실시간 표시.
+
 ---
 
 ## 5. 비기능 요구사항 (NFR)
@@ -216,10 +237,11 @@
 - **NFR-02**: MIDI 입력 ➔ BLE 패킷 송신 레이턴시 15ms 이하 유지.
 - **NFR-03**: 파라미터 직접 입력 시 30ms Rate Limiter와 연동되어 급격한 패킷 플러딩 방지.
 - **NFR-04**: 모드 전환 시 리렌더링 깜빡임 없이 부드러운 애니메이션 트랜지션 제공.
+- **NFR-05**: BLE 역방향 수신 이벤트 디코딩 레이턴시 5ms 이하 유지.
 
 ---
 
 ## 6. 다음 단계
-1. **`docs/v0.0.5/plan.md` 작성**: v0.0.5 상세 아키텍처 및 Live/Advanced 모드, 7시~4시 노브, 접이식 패널 설계
-2. **`docs/v0.0.5/tasks.md` 작성**: 작업 분할 WBS 수립
-3. **v0.0.5 모듈 순차 구현 및 검증**
+1. **`docs/v0.0.6/plan.md` 작성**: v0.0.6 상세 아키텍처 및 Nexfoot MIDI Learn, BLE 양방향 진단기 설계
+2. **`docs/v0.0.6/tasks.md` 작성**: 작업 분할 WBS 수립
+3. **v0.0.6 모듈 순차 구현 및 검증**

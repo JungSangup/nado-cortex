@@ -62,19 +62,27 @@ describe('E2E Pipeline Integration (Mock Mode) v0.0.2', () => {
     expect(bleLog?.message).toContain('Param Pre FX 1');
   });
 
-  it('should flow end-to-end: pushing SW1 toggles Cortex Pre FX 1 bypass and transmits BLE packet', () => {
-    const initialBypass = useAppStore.getState().cortexSlots.find((s) => s.slotId === 'pre_fx_1')?.isBypassed;
+  it('should flow end-to-end: pushing SW1 synchronizes Cortex Pre FX 1 bypass and transmits BLE packet', () => {
+    // 0. Ensure pre_fx_1 is initially bypassed (OFF)
+    useAppStore.getState().setSlotBypass('pre_fx_1', true);
 
-    // 1. Simulate pushing Nexfoot SW1 footswitch
+    // 1. Simulate pushing Nexfoot SW1 footswitch (ON / Val 127)
     mockMidi.simulatePush(1, true);
 
-    // 2. Verify slot bypass state inverted
-    const updatedSlot = useAppStore.getState().cortexSlots.find((s) => s.slotId === 'pre_fx_1');
-    expect(updatedSlot?.isBypassed).toBe(!initialBypass);
+    // 2. Verify slot state is synchronized to Active (isBypassed: false)
+    let updatedSlot = useAppStore.getState().cortexSlots.find((s) => s.slotId === 'pre_fx_1');
+    expect(updatedSlot?.isBypassed).toBe(false);
 
-    // 3. Verify log entry
+    // 3. Simulate releasing Nexfoot SW1 footswitch (OFF / Val 0)
+    mockMidi.simulatePush(1, false);
+
+    // 4. Verify slot state is synchronized to Bypassed (isBypassed: true)
+    updatedSlot = useAppStore.getState().cortexSlots.find((s) => s.slotId === 'pre_fx_1');
+    expect(updatedSlot?.isBypassed).toBe(true);
+
+    // 5. Verify log entry created
     const logs = useAppStore.getState().logs;
-    const slotLog = logs.find((l) => l.message.includes('Toggled Slot Pre FX 1'));
+    const slotLog = logs.find((l) => l.message.includes('Slot Pre FX 1'));
     expect(slotLog).toBeDefined();
   });
 });

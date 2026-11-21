@@ -23,9 +23,9 @@ describe('NexfootParser', () => {
     expect(releaseEvt?.isPushed).toBe(false);
   });
 
-  it('should parse SW1 (A) relative rotate events (CC 57, Val 0 = CW, Val 1 = CCW)', () => {
-    // Clockwise (Val 0)
-    const cwData = new Uint8Array([0xB0, 57, 0]);
+  it('should parse SW1 (A) relative rotate events (CC 57, Val 127 = CW, Val 0 = CCW)', () => {
+    // Clockwise (Val 127)
+    const cwData = new Uint8Array([0xB0, 57, 127]);
     const cwEvt = parser.parse(cwData);
     expect(cwEvt).not.toBeNull();
     expect(cwEvt?.encoderId).toBe(1);
@@ -33,8 +33,8 @@ describe('NexfootParser', () => {
     expect(cwEvt?.isRelative).toBe(true);
     expect(cwEvt?.step).toBe(1);
 
-    // Counter-Clockwise (Val 1)
-    const ccwData = new Uint8Array([0xB0, 57, 1]);
+    // Counter-Clockwise (Val 0)
+    const ccwData = new Uint8Array([0xB0, 57, 0]);
     const ccwEvt = parser.parse(ccwData);
     expect(ccwEvt).not.toBeNull();
     expect(ccwEvt?.isRelative).toBe(true);

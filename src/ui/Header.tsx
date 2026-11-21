@@ -126,7 +126,7 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center gap-1.5">
                 <h1 className="text-base sm:text-lg font-black tracking-wider text-white">NADO CORTEX</h1>
                 <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-cortex-cyan/20 text-cortex-cyan border border-cortex-cyan/30 font-mono">
-                  v0.0.5
+                  v0.0.6
                 </span>
               </div>
             </div>

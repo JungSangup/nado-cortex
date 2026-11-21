@@ -133,11 +133,31 @@ export class WebBluetoothManager {
 
     const run = async () => {
       if (!this.writeCharacteristic) return;
-      const buffer = rawPacket.buffer.slice(rawPacket.byteOffset, rawPacket.byteOffset + rawPacket.byteLength) as ArrayBuffer;
-      if (this.writeCharacteristic.writeValueWithResponse) {
-        await this.writeCharacteristic.writeValueWithResponse(buffer);
-      } else {
-        await this.writeCharacteristic.writeValue(buffer);
+      const buffer = rawPacket.buffer.slice(
+        rawPacket.byteOffset,
+        rawPacket.byteOffset + rawPacket.byteLength
+      ) as ArrayBuffer;
+
+      const char = this.writeCharacteristic;
+      try {
+        if (char.writeValueWithResponse) {
+          await char.writeValueWithResponse(buffer);
+        } else if (char.writeValueWithoutResponse) {
+          await char.writeValueWithoutResponse(buffer);
+        } else {
+          await char.writeValue(buffer);
+        }
+      } catch (firstErr) {
+        // Fallback to writeValueWithoutResponse if writeValueWithResponse is rejected
+        if (char.writeValueWithoutResponse) {
+          try {
+            await char.writeValueWithoutResponse(buffer);
+            return;
+          } catch {
+            throw firstErr;
+          }
+        }
+        throw firstErr;
       }
     };
 

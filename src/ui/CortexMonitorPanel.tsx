@@ -5,6 +5,7 @@ import { CortexSlotId } from '../types';
 import { getModelsForSlot } from '../core/DeviceCatalog';
 import { setlistManager } from '../core/SetlistManager';
 import { SlotParameterRack } from './SlotParameterRack';
+import { BleDiagnosticsBar } from './BleDiagnosticsBar';
 
 interface CortexMonitorPanelProps {
   onToggleSlot?: (slotId: CortexSlotId) => void;
@@ -13,6 +14,8 @@ interface CortexMonitorPanelProps {
   onParamChange?: (slotId: CortexSlotId, paramIndex: number, value: number) => void;
   onTapTempo?: () => void;
   onToggleTuner?: () => void;
+  onPingPreset?: () => void;
+  onPingToggleSlot?: () => void;
 }
 
 /**
@@ -100,6 +103,8 @@ export const CortexMonitorPanel: React.FC<CortexMonitorPanelProps> = ({
   onParamChange,
   onTapTempo,
   onToggleTuner,
+  onPingPreset,
+  onPingToggleSlot,
 }) => {
   const {
     currentPresetIndex,
@@ -280,6 +285,19 @@ export const CortexMonitorPanel: React.FC<CortexMonitorPanelProps> = ({
           <span className="text-[10px] font-mono text-slate-400">440.0 Hz • ±0 Cents</span>
         </div>
       )}
+
+      {/* Real-time BLE Bidirectional Diagnostics Bar */}
+      <BleDiagnosticsBar
+        onPingPreset={() => {
+          if (onPingPreset) onPingPreset();
+          else if (onChangePreset) onChangePreset(currentPresetIndex);
+        }}
+        onPingToggleSlot={() => {
+          if (onPingToggleSlot) onPingToggleSlot();
+          else if (onToggleSlot) onToggleSlot('pre_fx_1');
+          else toggleSlotBypass('pre_fx_1');
+        }}
+      />
 
       {/* Signal Chain Blocks - 2-Row Split (Core Amp/Cab vs FX Pedals) */}
       <div className="space-y-4">

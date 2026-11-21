@@ -103,11 +103,14 @@ export class DynamicPagingRouter {
   }
 
   /**
-   * Adjusts parameter value by step delta (e.g. +0.02 for CW, -0.02 for CCW)
+   * Adjusts parameter value by step delta (e.g. +0.01 for CW, -0.01 for CCW)
    */
   public adjustParameterValue(slotId: CortexSlotId, paramIndex: number, delta: number): number {
     const current = this.getParameterValue(slotId, paramIndex);
-    const updated = Math.max(0, Math.min(1.0, current + delta));
+    const rawUpdated = current + delta;
+    // Round to 2 decimal places to avoid floating point drift (e.g. 0.45000000000000007)
+    const rounded = Math.round(rawUpdated * 100) / 100;
+    const updated = Math.max(0, Math.min(1.0, rounded));
     return this.setParameterValue(slotId, paramIndex, updated);
   }
 

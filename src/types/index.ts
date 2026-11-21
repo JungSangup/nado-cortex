@@ -55,7 +55,7 @@ export interface ControlBinding {
   id: string;
   swId: 'sw1' | 'sw2' | 'sw3' | 'sw4' | 'exp';
   type: 'push' | 'rotate';
-  targetType: 'slot_toggle' | 'slot_param' | 'preset_change' | 'page_nav';
+  targetType: 'slot_toggle' | 'slot_param' | 'preset_change' | 'page_nav' | 'exp_mod';
   targetSlotId?: CortexSlotId;
   targetParamIndex?: number;
   midiChannel: number;
@@ -75,10 +75,10 @@ export interface MappingProfile {
 }
 
 export interface MidiLearnTarget {
-  type: 'slot_toggle' | 'slot_param' | 'page_nav';
+  type: 'slot_toggle' | 'slot_param' | 'page_nav' | 'sw_rotate' | 'sw_push' | 'exp_pedal';
   slotId?: CortexSlotId;
   paramIndex?: number;
-  swId?: 'sw1' | 'sw2' | 'sw3' | 'sw4';
+  swId?: 'sw1' | 'sw2' | 'sw3' | 'sw4' | 'exp';
 }
 
 export interface MidiLearnState {

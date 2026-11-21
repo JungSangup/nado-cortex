@@ -11,6 +11,11 @@ export class MidiLearnEngine {
 
   private listeners: Set<MidiLearnListener> = new Set();
   private sampleHistory: { channel: number; cc: number; val: number; timestamp: number }[] = [];
+  private onProfileUpdated?: () => void;
+
+  public setOnProfileUpdated(callback: () => void): void {
+    this.onProfileUpdated = callback;
+  }
 
   public getState(): MidiLearnState {
     return { ...this.state };
@@ -58,14 +63,29 @@ export class MidiLearnEngine {
       this.sampleHistory.shift();
     }
 
-    const isTargetToggle = this.state.target.type === 'slot_toggle' || this.state.target.type === 'page_nav';
+    const isTargetToggle =
+      this.state.target.type === 'slot_toggle' ||
+      this.state.target.type === 'page_nav' ||
+      this.state.target.type === 'sw_push';
 
     if (isTargetToggle) {
       this.finalizeLearn(channel, cc, 'push_toggle');
       return true;
     }
 
-    // Continuous parameter target
+    // EXP Pedal is always absolute continuous
+    if (this.state.target.type === 'exp_pedal') {
+      this.finalizeLearn(channel, cc, 'absolute');
+      return true;
+    }
+
+    // Nexfoot Rotary Switch target is strictly Relative mode (CW = 127, CCW = 0, or 65/63/1)
+    if (this.state.target.type === 'sw_rotate') {
+      this.finalizeLearn(channel, cc, 'relative');
+      return true;
+    }
+
+    // Continuous parameter / other target
     const vals = this.sampleHistory.map(s => s.val);
     const hasIntermediate = vals.some(v => v > 1 && v < 127);
 
@@ -75,9 +95,9 @@ export class MidiLearnEngine {
       return true;
     }
 
-    // 2) If 0 or 1 ticks (Relative mode), require at least 2 ticks to confirm
-    const all0or1 = vals.every(v => v === 0 || v === 1);
-    if (all0or1 && this.sampleHistory.length >= 2) {
+    // 2) If relative tick signals (0, 1, 127, 63, 65), confirm Relative mode
+    const isTick = vals.every(v => v === 0 || v === 1 || v === 127 || v === 63 || v === 65);
+    if (isTick && this.sampleHistory.length >= 2) {
       this.finalizeLearn(channel, cc, 'relative');
       return true;
     }
@@ -97,8 +117,8 @@ export class MidiLearnEngine {
       return 'absolute';
     }
 
-    const all0or1 = vals.every(v => v === 0 || v === 1);
-    if (all0or1) {
+    const isTick = vals.every(v => v === 0 || v === 1 || v === 127 || v === 63 || v === 65);
+    if (isTick) {
       return 'relative';
     }
 
@@ -110,24 +130,73 @@ export class MidiLearnEngine {
 
     const target = this.state.target;
     const activeProfile = profileManager.getActiveProfile();
-
     const swId = target.swId || 'sw1';
-    const isPush = target.type === 'slot_toggle' || target.type === 'page_nav';
 
-    const binding: ControlBinding = {
-      id: `bind_${swId}_${isPush ? 'push' : 'rot'}_learned`,
-      swId,
-      type: isPush ? 'push' : 'rotate',
-      targetType: target.type,
-      targetSlotId: target.slotId,
-      targetParamIndex: target.paramIndex,
-      midiChannel: channel,
-      ccNumber: cc,
-      mode,
-      min: 0,
-      max: mode === 'absolute' ? 127 : 1,
-      invert: false,
-    };
+    let binding: ControlBinding;
+
+    if (target.type === 'exp_pedal') {
+      const existingExp = activeProfile.bindings.find((b) => b.swId === 'exp');
+      binding = {
+        id: existingExp ? existingExp.id : 'bind_exp_learned',
+        swId: 'exp',
+        type: 'rotate',
+        targetType: 'exp_mod',
+        midiChannel: channel,
+        ccNumber: cc,
+        mode: 'absolute',
+        min: 0,
+        max: 127,
+        invert: false,
+      };
+    } else if (target.type === 'sw_rotate') {
+      const existingRot = activeProfile.bindings.find((b) => b.swId === swId && b.type === 'rotate');
+      const swNum = parseInt(swId.replace('sw', ''), 10) || 1;
+      binding = {
+        id: existingRot ? existingRot.id : `bind_${swId}_rot_learned`,
+        swId,
+        type: 'rotate',
+        targetType: existingRot?.targetType || 'slot_param',
+        targetSlotId: existingRot?.targetSlotId,
+        targetParamIndex: existingRot?.targetParamIndex ?? swNum - 1,
+        midiChannel: channel,
+        ccNumber: cc,
+        mode,
+        min: 0,
+        max: mode === 'absolute' ? 127 : 1,
+        invert: false,
+      };
+    } else if (target.type === 'sw_push') {
+      const existingPush = activeProfile.bindings.find((b) => b.swId === swId && b.type === 'push');
+      binding = {
+        id: existingPush ? existingPush.id : `bind_${swId}_push_learned`,
+        swId,
+        type: 'push',
+        targetType: existingPush?.targetType || (swId === 'sw4' ? 'page_nav' : 'slot_toggle'),
+        targetSlotId: existingPush?.targetSlotId,
+        midiChannel: channel,
+        ccNumber: cc,
+        mode: 'push_toggle',
+        min: 0,
+        max: 127,
+        invert: false,
+      };
+    } else {
+      const isPush = target.type === 'slot_toggle' || target.type === 'page_nav';
+      binding = {
+        id: `bind_${swId}_${isPush ? 'push' : 'rot'}_learned`,
+        swId,
+        type: isPush ? 'push' : 'rotate',
+        targetType: target.type,
+        targetSlotId: target.slotId,
+        targetParamIndex: target.paramIndex,
+        midiChannel: channel,
+        ccNumber: cc,
+        mode,
+        min: 0,
+        max: mode === 'absolute' ? 127 : 1,
+        invert: false,
+      };
+    }
 
     profileManager.updateBinding(activeProfile.id, binding);
 
@@ -138,6 +207,10 @@ export class MidiLearnEngine {
       detectedCC: cc,
       detectedChannel: channel,
     };
+
+    if (this.onProfileUpdated) {
+      this.onProfileUpdated();
+    }
 
     this.notify();
   }
